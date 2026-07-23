@@ -1,0 +1,41 @@
+include "common.fbs";
+
+namespace ProtoType.Net;
+
+enum EquipSlot : byte {
+  Head,
+  Chest,
+  Back,
+  Hands,
+  Legs,
+  Feet,
+  PrimaryWeapon,
+  SecondaryWeapon,
+  Melee,
+}
+
+table EquippedVisual {
+  slot: EquipSlot;
+  item_id: uint32;
+}
+
+table S2C_SendAvatarInfo {
+  player_id: uint32;
+  nickname: string;
+  position: Vec3;
+  look: Rotator;
+  health: float;
+  max_health: float;
+  level: uint32;
+  character_model_id: uint32;
+  equipped: [EquippedVisual];
+}
+
+table S2C_SendPlayerInfo {
+  player_id: uint32;
+  nickname: string;
+  position: Vec3;
+  look: Rotator;
+  character_model_id: uint32;
+  equipped: [EquippedVisual];
+}

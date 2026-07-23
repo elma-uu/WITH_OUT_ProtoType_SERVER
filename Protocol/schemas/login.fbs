@@ -1,0 +1,20 @@
+namespace ProtoType.Net;
+
+table C2S_Login {
+  auth_token: string;
+  client_version: string;
+}
+
+enum LoginFailReason : byte {
+  InvalidToken,
+  VersionMismatch,
+  ServerFull,
+  Banned,
+  AlreadyLoggedIn,
+  Unknown,
+}
+
+table S2C_LoginFail {
+  reason: LoginFailReason;
+  message: string;
+}

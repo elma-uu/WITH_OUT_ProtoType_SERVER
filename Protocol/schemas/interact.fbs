@@ -1,0 +1,25 @@
+include "common.fbs";
+
+namespace ProtoType.Net;
+
+enum InteractType : byte {
+  Loot,
+  DoorOpen,
+  DoorClose,
+  Extract,
+  PlantItem,
+  UseSwitch,
+}
+
+table C2S_InteractRequest {
+  header: Header;
+  target_id: uint32;
+  interact_type: InteractType;
+}
+
+table S2C_InteractResult {
+  player_id: uint32;
+  target_id: uint32;
+  interact_type: InteractType;
+  result: ResultCode;
+}

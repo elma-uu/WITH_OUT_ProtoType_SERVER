@@ -1,0 +1,34 @@
+namespace ProtoType.Net;
+
+struct Vec2 {
+  x: float;
+  y: float;
+}
+
+struct Vec3 {
+  x: float;
+  y: float;
+  z: float;
+}
+
+struct Rotator {
+  pitch: float;
+  yaw: float;
+  roll: float;
+}
+
+struct Header {
+  seq: uint32;
+  client_time_ms: uint32;
+  player_id: uint32;
+}
+
+enum ResultCode : byte {
+  Ok,
+  Failed,
+  Denied,
+  OutOfRange,
+  Busy,
+  InvalidTarget,
+  Cooldown,
+}

@@ -1,0 +1,32 @@
+include "common.fbs";
+
+namespace ProtoType.Net;
+
+enum MoveFlags : ushort (bit_flags) {
+  Sprint,
+  Crouch,
+  Prone,
+  Jump,
+  ADS,
+  Falling,
+  Swimming,
+  Leaning_Left,
+  Leaning_Right,
+}
+
+table C2S_MoveInput {
+  header: Header;
+  move_input: Vec2;
+  look: Rotator;
+  flags: MoveFlags;
+}
+
+table S2C_MoveState {
+  player_id: uint32;
+  server_tick: uint32;
+  position: Vec3;
+  velocity: Vec3;
+  look: Rotator;
+  flags: MoveFlags;
+  ack_client_seq: uint32;
+}

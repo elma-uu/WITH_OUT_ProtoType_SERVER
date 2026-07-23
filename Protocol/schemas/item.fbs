@@ -1,0 +1,28 @@
+include "common.fbs";
+
+namespace ProtoType.Net;
+
+enum ItemUseType : byte {
+  Consume,
+  Equip,
+  Unequip,
+  Drop,
+  Reload,
+  Inspect,
+  ToggleAttachment,
+}
+
+table C2S_ItemUseRequest {
+  header: Header;
+  item_instance_id: uint64;
+  slot: ubyte;
+  use_type: ItemUseType;
+}
+
+table S2C_ItemUseResult {
+  player_id: uint32;
+  item_instance_id: uint64;
+  use_type: ItemUseType;
+  result: ResultCode;
+  value: float;
+}

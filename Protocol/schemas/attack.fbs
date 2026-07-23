@@ -1,0 +1,40 @@
+include "common.fbs";
+
+namespace ProtoType.Net;
+
+enum AttackType : byte {
+  Fire,
+  Melee,
+  Throw,
+  ReloadStart,
+}
+
+enum HitBone : byte {
+  None,
+  Head,
+  Chest,
+  Stomach,
+  LeftArm,
+  RightArm,
+  LeftLeg,
+  RightLeg,
+}
+
+table C2S_AttackRequest {
+  header: Header;
+  weapon_slot: ubyte;
+  attack_type: AttackType;
+  origin: Vec3;
+  direction: Vec3;
+}
+
+table S2C_AttackResult {
+  server_tick: uint32;
+  attacker_id: uint32;
+  target_id: uint32;
+  weapon_id: uint32;
+  hit: bool;
+  hit_position: Vec3;
+  hit_bone: HitBone;
+  damage: float;
+}

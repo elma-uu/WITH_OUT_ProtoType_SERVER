@@ -1,0 +1,30 @@
+include "login.fbs";
+include "player.fbs";
+include "movement.fbs";
+include "attack.fbs";
+include "item.fbs";
+include "interact.fbs";
+
+namespace ProtoType.Net;
+
+union Payload {
+  C2S_Login,
+  S2C_LoginFail,
+  S2C_SendAvatarInfo,
+  S2C_SendPlayerInfo,
+  C2S_MoveInput,
+  S2C_MoveState,
+  C2S_AttackRequest,
+  S2C_AttackResult,
+  C2S_ItemUseRequest,
+  S2C_ItemUseResult,
+  C2S_InteractRequest,
+  S2C_InteractResult,
+}
+
+table Packet {
+  payload: Payload;
+}
+
+root_type Packet;
+file_identifier "PTPK";

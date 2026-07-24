@@ -4,6 +4,76 @@
 #include <cstdio>
 #include <cstring>
 
+namespace
+{
+    // Human-readable description of a client action, for the server console.
+    // Falls back to the raw payload name for anything not called out below
+    // (S2C_* payloads should never arrive from a client in the first place).
+    const char* DescribeAction(const ProtoType::Net::Packet* packet)
+    {
+        using namespace ProtoType::Net;
+
+        switch (packet->payload_type())
+        {
+            case Payload::C2S_Login:
+                return "login";
+
+            case Payload::C2S_MoveInput:
+                return "move";
+
+            case Payload::C2S_AttackRequest:
+                if (const auto* req = packet->payload_as_C2S_AttackRequest())
+                {
+                    switch (req->attack_type())
+                    {
+                        case AttackType::Fire:        return "attack fire";
+                        case AttackType::Melee:       return "attack melee";
+                        case AttackType::Throw:       return "attack throw";
+                        case AttackType::ReloadStart: return "reload start";
+                    }
+                }
+                return "attack";
+
+            case Payload::C2S_ItemUseRequest:
+                if (const auto* req = packet->payload_as_C2S_ItemUseRequest())
+                {
+                    switch (req->use_type())
+                    {
+                        case ItemUseType::Consume:          return "item consume";
+                        case ItemUseType::Equip:            return "item equip";
+                        case ItemUseType::Unequip:           return "item unequip";
+                        case ItemUseType::Drop:             return "item drop";
+                        case ItemUseType::Reload:            return "weapon reload";
+                        case ItemUseType::Inspect:          return "item inspect";
+                        case ItemUseType::ToggleAttachment: return "attachment toggle";
+                    }
+                }
+                return "item use";
+
+            case Payload::C2S_InteractRequest:
+                if (const auto* req = packet->payload_as_C2S_InteractRequest())
+                {
+                    switch (req->interact_type())
+                    {
+                        // Both weapon and item pickups go through the same
+                        // world-loot interaction; the protocol has no
+                        // separate field to tell them apart.
+                        case InteractType::Loot:       return "item get";
+                        case InteractType::DoorOpen:   return "door open";
+                        case InteractType::DoorClose:  return "door close";
+                        case InteractType::Extract:    return "extract";
+                        case InteractType::PlantItem:  return "item plant";
+                        case InteractType::UseSwitch:  return "switch use";
+                    }
+                }
+                return "interact";
+
+            default:
+                return EnumNamePayload(packet->payload_type());
+        }
+    }
+}
+
 namespace Wop
 {
     Session::Session(SOCKET socket, uint32_t id, RIO_CQ recvCq, RIO_CQ sendCq,
@@ -140,10 +210,7 @@ namespace Wop
             }
 
             const auto* packet = ProtoType::Net::GetSizePrefixedPacket(recvBuffer_.ReadPos());
-            std::printf("[Session %u] echo %s (%llu bytes)\n",
-                id_,
-                ProtoType::Net::EnumNamePayload(packet->payload_type()),
-                static_cast<unsigned long long>(total));
+            std::printf("[ Client %u ] %s\n", id_, DescribeAction(packet));
 
             EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

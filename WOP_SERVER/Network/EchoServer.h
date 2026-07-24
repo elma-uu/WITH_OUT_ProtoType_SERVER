@@ -1,0 +1,64 @@
+#pragma once
+#include "NetCommon.h"
+#include "Session.h"
+#include <atomic>
+#include <mutex>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+namespace Wop
+{
+    // Ties together a listen socket (accepted via AcceptEx so every client
+    // socket is created with WSA_FLAG_REGISTERED_IO), a pair of RIO
+    // completion queues bound to one IOCP, and the worker threads that drain
+    // them. Each accepted connection becomes a Session that echoes back
+    // whatever complete Protocol packets it receives.
+    class EchoServer
+    {
+    public:
+        EchoServer(uint16_t port, uint32_t workerThreadCount);
+        ~EchoServer();
+
+        EchoServer(const EchoServer&) = delete;
+        EchoServer& operator=(const EchoServer&) = delete;
+
+        bool Start();
+        void Stop();
+
+    private:
+        static constexpr ULONG kCompletionQueueSize = 8192;
+
+        bool InitWinsock();
+        bool CreateListenSocket();
+        bool LoadAcceptEx();
+        bool InitRio();
+
+        void AcceptLoop();
+        void WorkerLoop();
+
+        void OnAccepted(SOCKET clientSocket);
+        void UnregisterSession(uint32_t sessionId);
+
+        uint16_t port_;
+        uint32_t workerThreadCount_;
+
+        bool winsockReady_ = false;
+        SOCKET listenSocket_ = INVALID_SOCKET;
+        LPFN_ACCEPTEX acceptEx_ = nullptr;
+
+        HANDLE iocp_ = nullptr;
+        RIO_CQ recvCq_ = RIO_INVALID_CQ;
+        RIO_CQ sendCq_ = RIO_INVALID_CQ;
+        OVERLAPPED recvNotifyOverlapped_{};
+        OVERLAPPED sendNotifyOverlapped_{};
+
+        std::atomic<bool> running_{false};
+        std::thread acceptThread_;
+        std::vector<std::thread> workerThreads_;
+
+        std::mutex sessionsLock_;
+        std::unordered_map<uint32_t, std::shared_ptr<Session>> sessions_;
+        std::atomic<uint32_t> nextSessionId_{1};
+    };
+}

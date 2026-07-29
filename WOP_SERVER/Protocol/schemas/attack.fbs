@@ -38,3 +38,14 @@ table S2C_AttackResult {
   hit_bone: HitBone;
   damage: float;
 }
+
+// Relayed to every other connected client so they can see this shot; the
+// server does not resolve hits itself (see S2C_AttackResult for that, once
+// server-side hit detection exists).
+table S2C_AttackBroadcast {
+  attacker_id: uint32;
+  weapon_slot: ubyte;
+  attack_type: AttackType;
+  origin: Vec3;
+  direction: Vec3;
+}

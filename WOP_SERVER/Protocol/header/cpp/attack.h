@@ -26,6 +26,10 @@ struct S2C_AttackResult;
 struct S2C_AttackResultBuilder;
 struct S2C_AttackResultT;
 
+struct S2C_AttackBroadcast;
+struct S2C_AttackBroadcastBuilder;
+struct S2C_AttackBroadcastT;
+
 enum class AttackType : int8_t {
   Fire = 0,
   Melee = 1,
@@ -357,6 +361,113 @@ struct S2C_AttackResult::Traits {
 
 ::flatbuffers::Offset<S2C_AttackResult> CreateS2C_AttackResult(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_AttackResultT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct S2C_AttackBroadcastT : public ::flatbuffers::NativeTable {
+  typedef S2C_AttackBroadcast TableType;
+  uint32_t attacker_id = 0;
+  uint8_t weapon_slot = 0;
+  ProtoType::Net::AttackType attack_type = ProtoType::Net::AttackType::Fire;
+  std::unique_ptr<ProtoType::Net::Vec3> origin{};
+  std::unique_ptr<ProtoType::Net::Vec3> direction{};
+  S2C_AttackBroadcastT() = default;
+  S2C_AttackBroadcastT(const S2C_AttackBroadcastT &o);
+  S2C_AttackBroadcastT(S2C_AttackBroadcastT&&) FLATBUFFERS_NOEXCEPT = default;
+  S2C_AttackBroadcastT &operator=(S2C_AttackBroadcastT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct S2C_AttackBroadcast FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_AttackBroadcastT NativeTableType;
+  typedef S2C_AttackBroadcastBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ATTACKER_ID = 4,
+    VT_WEAPON_SLOT = 6,
+    VT_ATTACK_TYPE = 8,
+    VT_ORIGIN = 10,
+    VT_DIRECTION = 12
+  };
+  uint32_t attacker_id() const {
+    return GetField<uint32_t>(VT_ATTACKER_ID, 0);
+  }
+  uint8_t weapon_slot() const {
+    return GetField<uint8_t>(VT_WEAPON_SLOT, 0);
+  }
+  ProtoType::Net::AttackType attack_type() const {
+    return static_cast<ProtoType::Net::AttackType>(GetField<int8_t>(VT_ATTACK_TYPE, 0));
+  }
+  const ProtoType::Net::Vec3 *origin() const {
+    return GetStruct<const ProtoType::Net::Vec3 *>(VT_ORIGIN);
+  }
+  const ProtoType::Net::Vec3 *direction() const {
+    return GetStruct<const ProtoType::Net::Vec3 *>(VT_DIRECTION);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ATTACKER_ID, 4) &&
+           VerifyField<uint8_t>(verifier, VT_WEAPON_SLOT, 1) &&
+           VerifyField<int8_t>(verifier, VT_ATTACK_TYPE, 1) &&
+           VerifyField<ProtoType::Net::Vec3>(verifier, VT_ORIGIN, 4) &&
+           VerifyField<ProtoType::Net::Vec3>(verifier, VT_DIRECTION, 4) &&
+           verifier.EndTable();
+  }
+  S2C_AttackBroadcastT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_AttackBroadcastT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_AttackBroadcast> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_AttackBroadcastT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_AttackBroadcastBuilder {
+  typedef S2C_AttackBroadcast Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_attacker_id(uint32_t attacker_id) {
+    fbb_.AddElement<uint32_t>(S2C_AttackBroadcast::VT_ATTACKER_ID, attacker_id, 0);
+  }
+  void add_weapon_slot(uint8_t weapon_slot) {
+    fbb_.AddElement<uint8_t>(S2C_AttackBroadcast::VT_WEAPON_SLOT, weapon_slot, 0);
+  }
+  void add_attack_type(ProtoType::Net::AttackType attack_type) {
+    fbb_.AddElement<int8_t>(S2C_AttackBroadcast::VT_ATTACK_TYPE, static_cast<int8_t>(attack_type), 0);
+  }
+  void add_origin(const ProtoType::Net::Vec3 *origin) {
+    fbb_.AddStruct(S2C_AttackBroadcast::VT_ORIGIN, origin);
+  }
+  void add_direction(const ProtoType::Net::Vec3 *direction) {
+    fbb_.AddStruct(S2C_AttackBroadcast::VT_DIRECTION, direction);
+  }
+  explicit S2C_AttackBroadcastBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_AttackBroadcast> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_AttackBroadcast>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_AttackBroadcast> CreateS2C_AttackBroadcast(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t attacker_id = 0,
+    uint8_t weapon_slot = 0,
+    ProtoType::Net::AttackType attack_type = ProtoType::Net::AttackType::Fire,
+    const ProtoType::Net::Vec3 *origin = nullptr,
+    const ProtoType::Net::Vec3 *direction = nullptr) {
+  S2C_AttackBroadcastBuilder builder_(_fbb);
+  builder_.add_direction(direction);
+  builder_.add_origin(origin);
+  builder_.add_attacker_id(attacker_id);
+  builder_.add_attack_type(attack_type);
+  builder_.add_weapon_slot(weapon_slot);
+  return builder_.Finish();
+}
+
+struct S2C_AttackBroadcast::Traits {
+  using type = S2C_AttackBroadcast;
+  static auto constexpr Create = CreateS2C_AttackBroadcast;
+};
+
+::flatbuffers::Offset<S2C_AttackBroadcast> CreateS2C_AttackBroadcast(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_AttackBroadcastT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline C2S_AttackRequestT::C2S_AttackRequestT(const C2S_AttackRequestT &o)
       : header((o.header) ? new ProtoType::Net::Header(*o.header) : nullptr),
         weapon_slot(o.weapon_slot),
@@ -480,6 +591,61 @@ inline ::flatbuffers::Offset<S2C_AttackResult> S2C_AttackResult::Pack(::flatbuff
       _hit_position,
       _hit_bone,
       _damage);
+}
+
+inline S2C_AttackBroadcastT::S2C_AttackBroadcastT(const S2C_AttackBroadcastT &o)
+      : attacker_id(o.attacker_id),
+        weapon_slot(o.weapon_slot),
+        attack_type(o.attack_type),
+        origin((o.origin) ? new ProtoType::Net::Vec3(*o.origin) : nullptr),
+        direction((o.direction) ? new ProtoType::Net::Vec3(*o.direction) : nullptr) {
+}
+
+inline S2C_AttackBroadcastT &S2C_AttackBroadcastT::operator=(S2C_AttackBroadcastT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(attacker_id, o.attacker_id);
+  std::swap(weapon_slot, o.weapon_slot);
+  std::swap(attack_type, o.attack_type);
+  std::swap(origin, o.origin);
+  std::swap(direction, o.direction);
+  return *this;
+}
+
+inline S2C_AttackBroadcastT *S2C_AttackBroadcast::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_AttackBroadcastT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_AttackBroadcast::UnPackTo(S2C_AttackBroadcastT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = attacker_id(); _o->attacker_id = _e; }
+  { auto _e = weapon_slot(); _o->weapon_slot = _e; }
+  { auto _e = attack_type(); _o->attack_type = _e; }
+  { auto _e = origin(); if (_e) _o->origin = std::unique_ptr<ProtoType::Net::Vec3>(new ProtoType::Net::Vec3(*_e)); }
+  { auto _e = direction(); if (_e) _o->direction = std::unique_ptr<ProtoType::Net::Vec3>(new ProtoType::Net::Vec3(*_e)); }
+}
+
+inline ::flatbuffers::Offset<S2C_AttackBroadcast> CreateS2C_AttackBroadcast(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_AttackBroadcastT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_AttackBroadcast::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_AttackBroadcast> S2C_AttackBroadcast::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_AttackBroadcastT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_AttackBroadcastT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _attacker_id = _o->attacker_id;
+  auto _weapon_slot = _o->weapon_slot;
+  auto _attack_type = _o->attack_type;
+  auto _origin = _o->origin ? _o->origin.get() : nullptr;
+  auto _direction = _o->direction ? _o->direction.get() : nullptr;
+  return ProtoType::Net::CreateS2C_AttackBroadcast(
+      _fbb,
+      _attacker_id,
+      _weapon_slot,
+      _attack_type,
+      _origin,
+      _direction);
 }
 
 }  // namespace Net

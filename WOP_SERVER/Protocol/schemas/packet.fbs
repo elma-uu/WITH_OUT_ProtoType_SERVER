@@ -17,6 +17,7 @@ union Payload {
   S2C_MoveState,
   C2S_AttackRequest,
   S2C_AttackResult,
+  S2C_AttackBroadcast,
   C2S_ItemUseRequest,
   S2C_ItemUseResult,
   C2S_InteractRequest,

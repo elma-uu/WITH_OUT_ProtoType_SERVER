@@ -263,6 +263,23 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_AttackRequest:
+            {
+                const auto* req = packet->payload_as_C2S_AttackRequest();
+                if (!req)
+                    break;
+
+                flatbuffers::FlatBufferBuilder fbb;
+                const Vec3 origin = req->origin() ? *req->origin() : Vec3(0.0f, 0.0f, 0.0f);
+                const Vec3 direction = req->direction() ? *req->direction() : Vec3(0.0f, 0.0f, 0.0f);
+                auto broadcast = CreateS2C_AttackBroadcast(fbb, id_, req->weapon_slot(), req->attack_type(), &origin, &direction);
+                auto reply = CreatePacket(fbb, Payload::S2C_AttackBroadcast, broadcast.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
             default:
                 break;
         }

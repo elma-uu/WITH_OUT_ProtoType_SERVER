@@ -10,6 +10,7 @@ namespace ProtoType.Net;
 union Payload {
   C2S_Login,
   S2C_LoginFail,
+  S2C_LoginSuccess,
   S2C_SendAvatarInfo,
   S2C_SendPlayerInfo,
   C2S_MoveInput,

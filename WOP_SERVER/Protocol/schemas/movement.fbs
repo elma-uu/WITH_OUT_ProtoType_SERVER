@@ -19,6 +19,7 @@ table C2S_MoveInput {
   move_input: Vec2;
   look: Rotator;
   flags: MoveFlags;
+  position: Vec3;
 }
 
 table S2C_MoveState {

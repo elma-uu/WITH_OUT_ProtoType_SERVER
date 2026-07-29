@@ -18,3 +18,7 @@ table S2C_LoginFail {
   reason: LoginFailReason;
   message: string;
 }
+
+table S2C_LoginSuccess {
+  player_id: uint32;
+}

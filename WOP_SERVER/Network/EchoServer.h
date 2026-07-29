@@ -9,11 +9,6 @@
 
 namespace Wop
 {
-    // Ties together a listen socket (accepted via AcceptEx so every client
-    // socket is created with WSA_FLAG_REGISTERED_IO), a pair of RIO
-    // completion queues bound to one IOCP, and the worker threads that drain
-    // them. Each accepted connection becomes a Session that echoes back
-    // whatever complete Protocol packets it receives.
     class EchoServer
     {
     public:
@@ -25,6 +20,13 @@ namespace Wop
 
         bool Start();
         void Stop();
+
+        // Sends `data` to every connected session except `excludeSessionId`.
+        void Broadcast(uint32_t excludeSessionId, const char* data, uint32_t len);
+
+        // Snapshot of every currently-connected session other than
+        // `excludeSessionId`, for building a "who's already here" roster.
+        std::vector<std::shared_ptr<Session>> SnapshotOtherSessions(uint32_t excludeSessionId);
 
     private:
         static constexpr ULONG kCompletionQueueSize = 8192;

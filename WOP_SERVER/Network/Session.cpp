@@ -1,8 +1,10 @@
 #include "Session.h"
+#include "EchoServer.h"
 #include "RioApi.h"
 #include "packet.h"
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 namespace
 {
@@ -77,11 +79,12 @@ namespace
 namespace Wop
 {
     Session::Session(SOCKET socket, uint32_t id, RIO_CQ recvCq, RIO_CQ sendCq,
-                      std::function<void(uint32_t)> onClosed)
+                      EchoServer& server, std::function<void(uint32_t)> onClosed)
         : socket_(socket)
         , id_(id)
         , recvCq_(recvCq)
         , sendCq_(sendCq)
+        , server_(server)
         , onClosed_(std::move(onClosed))
     {
     }
@@ -178,6 +181,93 @@ namespace Wop
         TryPostSend();
     }
 
+    void Session::Send(const char* data, uint32_t len)
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (closing_.load(std::memory_order_acquire))
+            return;
+
+        EnqueueEcho(data, len);
+    }
+
+    void Session::BroadcastGameplayState(const ProtoType::Net::Packet* packet)
+    {
+        using namespace ProtoType::Net;
+
+        switch (packet->payload_type())
+        {
+            case Payload::C2S_Login:
+            {
+                // Cheap deterministic spawn point so players don't stack.
+                position_ = Vec3(static_cast<float>(id_ % 8) * 200.0f, 0.0f, 100.0f);
+                look_ = Rotator(0.0f, 0.0f, 0.0f);
+
+                // 1) Tell this client its own player id.
+                {
+                    flatbuffers::FlatBufferBuilder fbb;
+                    auto success = CreateS2C_LoginSuccess(fbb, id_);
+                    auto reply = CreatePacket(fbb, Payload::S2C_LoginSuccess, success.Union());
+                    FinishSizePrefixedPacketBuffer(fbb, reply);
+                    EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                static_cast<uint32_t>(fbb.GetSize()));
+                }
+
+                // 2) Tell this client about everyone already connected.
+                for (const auto& other : server_.SnapshotOtherSessions(id_))
+                {
+                    flatbuffers::FlatBufferBuilder fbb;
+                    const std::string nickname = "Player" + std::to_string(other->GetId());
+                    auto nicknameOffset = fbb.CreateString(nickname);
+                    const Vec3 otherPos = other->GetPosition();
+                    const Rotator otherLook = other->GetLook();
+                    auto info = CreateS2C_SendPlayerInfo(fbb, other->GetId(), nicknameOffset, &otherPos, &otherLook, 0, 0);
+                    auto reply = CreatePacket(fbb, Payload::S2C_SendPlayerInfo, info.Union());
+                    FinishSizePrefixedPacketBuffer(fbb, reply);
+                    EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                static_cast<uint32_t>(fbb.GetSize()));
+                }
+
+                // 3) Tell everyone else that this player just joined.
+                {
+                    flatbuffers::FlatBufferBuilder fbb;
+                    const std::string nickname = "Player" + std::to_string(id_);
+                    auto nicknameOffset = fbb.CreateString(nickname);
+                    auto info = CreateS2C_SendPlayerInfo(fbb, id_, nicknameOffset, &position_, &look_, 0, 0);
+                    auto reply = CreatePacket(fbb, Payload::S2C_SendPlayerInfo, info.Union());
+                    FinishSizePrefixedPacketBuffer(fbb, reply);
+                    server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                       static_cast<uint32_t>(fbb.GetSize()));
+                }
+                break;
+            }
+
+            case Payload::C2S_MoveInput:
+            {
+                const auto* move = packet->payload_as_C2S_MoveInput();
+                if (!move)
+                    break;
+
+                if (const auto* pos = move->position())
+                    position_ = *pos;
+                if (const auto* lookField = move->look())
+                    look_ = *lookField;
+
+                flatbuffers::FlatBufferBuilder fbb;
+                const Vec3 velocity(0.0f, 0.0f, 0.0f);
+                const uint32_t ackSeq = move->header() ? move->header()->seq() : 0;
+                auto state = CreateS2C_MoveState(fbb, id_, 0, &position_, &velocity, &look_, move->flags(), ackSeq);
+                auto reply = CreatePacket(fbb, Payload::S2C_MoveState, state.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            default:
+                break;
+        }
+    }
+
     void Session::ProcessRecvBuffer()
     {
         for (;;)
@@ -197,7 +287,7 @@ namespace Wop
             }
 
             if (available < total)
-                break; // wait for the rest of the packet
+                break;
 
             flatbuffers::Verifier verifier(
                 reinterpret_cast<const uint8_t*>(recvBuffer_.ReadPos()),
@@ -212,7 +302,17 @@ namespace Wop
             const auto* packet = ProtoType::Net::GetSizePrefixedPacket(recvBuffer_.ReadPos());
             std::printf("[ Client %u ] %s\n", id_, DescribeAction(packet));
 
-            EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
+            BroadcastGameplayState(packet);
+
+            // Login/MoveInput already get a proper reply (S2C_LoginSuccess +
+            // roster/join broadcast, or S2C_MoveState broadcast) above; also
+            // self-echoing the raw C2S_* packet would just be stream noise
+            // that could be mistaken for a real S2C_* message.
+            const auto type = packet->payload_type();
+            const bool skipSelfEcho =
+                (type == ProtoType::Net::Payload::C2S_Login || type == ProtoType::Net::Payload::C2S_MoveInput);
+            if (!skipSelfEcho)
+                EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))
                 return;
 

@@ -244,7 +244,7 @@ namespace Wop
         const uint32_t id = nextSessionId_.fetch_add(1, std::memory_order_relaxed);
 
         auto session = std::make_shared<Session>(
-            clientSocket, id, recvCq_, sendCq_,
+            clientSocket, id, recvCq_, sendCq_, *this,
             [this](uint32_t sessionId) { UnregisterSession(sessionId); });
 
         {
@@ -287,6 +287,25 @@ namespace Wop
 
         // `keepAlive` drops here, destroying the Session (and deregistering
         // its RIO buffers) outside of sessionsLock_.
+    }
+
+    void EchoServer::Broadcast(uint32_t excludeSessionId, const char* data, uint32_t len)
+    {
+        for (const auto& session : SnapshotOtherSessions(excludeSessionId))
+            session->Send(data, len);
+    }
+
+    std::vector<std::shared_ptr<Session>> EchoServer::SnapshotOtherSessions(uint32_t excludeSessionId)
+    {
+        std::vector<std::shared_ptr<Session>> result;
+        std::lock_guard<std::mutex> guard(sessionsLock_);
+        result.reserve(sessions_.size());
+        for (const auto& [id, session] : sessions_)
+        {
+            if (id != excludeSessionId)
+                result.push_back(session);
+        }
+        return result;
     }
 
     void EchoServer::WorkerLoop()

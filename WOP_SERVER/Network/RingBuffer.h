@@ -1,18 +1,15 @@
-#pragma once
+﻿#pragma once
 #include <vector>
 #include <cstdint>
 #include <cstring>
 
 namespace Wop
 {
-    // Backing store for one RIO-registered buffer.
-    //
-    // RIO needs a single contiguous memory region to hand to RIOReceive /
-    // RIOSend, so this is not a true wraparound ring: data is appended
-    // linearly and, once the tail runs out of room, the unread bytes are
-    // compacted (memmove'd) back to offset 0. The underlying storage is
-    // allocated once and never resized, so the pointer registered with
-    // RIORegisterBuffer stays valid for the lifetime of the object.
+    // Backing store for one RIO-registered buffer. RIO needs a single
+    // contiguous region, so this isn't a true wraparound ring: data is
+    // appended linearly and compacted (memmove) back to offset 0 once the
+    // tail runs out of room. Storage is never resized, so the pointer
+    // registered with RIORegisterBuffer stays valid for the object's life.
     class RingBuffer
     {
     public:
@@ -22,6 +19,9 @@ namespace Wop
         {
         }
 
+        /*-------------------
+         조회
+        -------------------*/
         uint32_t Capacity() const { return capacity_; }
         uint32_t DataSize() const { return writePos_ - readPos_; }
 
@@ -35,6 +35,9 @@ namespace Wop
         // Contiguous free space available at the tail, without compacting.
         uint32_t TailFreeSize() const { return capacity_ - writePos_; }
 
+        /*-------------------
+         쓰기/읽기
+        -------------------*/
         // Makes sure at least `needed` contiguous bytes are free at the tail,
         // compacting first if the total free space allows it.
         // Returns false if `needed` can never fit (bigger than capacity).
@@ -69,6 +72,9 @@ namespace Wop
         }
 
     private:
+        /*-------------------
+         내부: 압축(memmove)
+        -------------------*/
         void Compact()
         {
             if (readPos_ == 0)

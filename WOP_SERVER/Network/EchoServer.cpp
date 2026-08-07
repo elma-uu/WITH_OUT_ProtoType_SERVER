@@ -1,9 +1,12 @@
-#include "EchoServer.h"
+﻿#include "EchoServer.h"
 #include "RioApi.h"
 #include <iterator>
 
 namespace Wop
 {
+    /*-------------------
+     생성/소멸
+    -------------------*/
     EchoServer::EchoServer(uint16_t port, uint32_t workerThreadCount)
         : port_(port)
         , workerThreadCount_(workerThreadCount == 0 ? 1 : workerThreadCount)
@@ -15,6 +18,9 @@ namespace Wop
         Stop();
     }
 
+    /*-------------------
+     초기화 (Winsock/리슨소켓/AcceptEx/RIO)
+    -------------------*/
     bool EchoServer::InitWinsock()
     {
         WSADATA wsaData{};
@@ -95,6 +101,9 @@ namespace Wop
         return true;
     }
 
+    /*-------------------
+     시작/정지
+    -------------------*/
     bool EchoServer::Start()
     {
         if (!InitWinsock())
@@ -185,6 +194,9 @@ namespace Wop
         }
     }
 
+    /*-------------------
+     접속 수락 루프 / 세션 등록·해제
+    -------------------*/
     void EchoServer::AcceptLoop()
     {
         while (running_.load(std::memory_order_acquire))
@@ -289,6 +301,9 @@ namespace Wop
         // its RIO buffers) outside of sessionsLock_.
     }
 
+    /*-------------------
+     멀티플레이어 브로드캐스트 지원
+    -------------------*/
     void EchoServer::Broadcast(uint32_t excludeSessionId, const char* data, uint32_t len)
     {
         for (const auto& session : SnapshotOtherSessions(excludeSessionId))
@@ -308,6 +323,9 @@ namespace Wop
         return result;
     }
 
+    /*-------------------
+     워커 스레드 루프 (IOCP 대기 → RIO 완료 드레인)
+    -------------------*/
     void EchoServer::WorkerLoop()
     {
         RIORESULT results[64];

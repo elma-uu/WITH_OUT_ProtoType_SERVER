@@ -26,3 +26,13 @@ table S2C_ItemUseResult {
   result: ResultCode;
   value: float;
 }
+
+// Relayed to every other connected client so they can mirror the action
+// (currently used for reload motion); slot doubles as the acting player's
+// weapon type (EWeaponType) for reload so the receiver knows which reload
+// animation section to play.
+table S2C_ItemUseBroadcast {
+  user_id: uint32;
+  use_type: ItemUseType;
+  slot: ubyte;
+}

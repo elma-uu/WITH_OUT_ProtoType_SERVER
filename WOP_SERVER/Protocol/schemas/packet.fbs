@@ -20,6 +20,7 @@ union Payload {
   S2C_AttackBroadcast,
   C2S_ItemUseRequest,
   S2C_ItemUseResult,
+  S2C_ItemUseBroadcast,
   C2S_InteractRequest,
   S2C_InteractResult,
 }

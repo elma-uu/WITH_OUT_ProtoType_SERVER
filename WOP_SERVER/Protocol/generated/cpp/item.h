@@ -26,6 +26,10 @@ struct S2C_ItemUseResult;
 struct S2C_ItemUseResultBuilder;
 struct S2C_ItemUseResultT;
 
+struct S2C_ItemUseBroadcast;
+struct S2C_ItemUseBroadcastBuilder;
+struct S2C_ItemUseBroadcastT;
+
 enum class ItemUseType : int8_t {
   Consume = 0,
   Equip = 1,
@@ -270,6 +274,87 @@ struct S2C_ItemUseResult::Traits {
 
 ::flatbuffers::Offset<S2C_ItemUseResult> CreateS2C_ItemUseResult(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemUseResultT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct S2C_ItemUseBroadcastT : public ::flatbuffers::NativeTable {
+  typedef S2C_ItemUseBroadcast TableType;
+  uint32_t user_id = 0;
+  ProtoType::Net::ItemUseType use_type = ProtoType::Net::ItemUseType::Consume;
+  uint8_t slot = 0;
+};
+
+struct S2C_ItemUseBroadcast FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_ItemUseBroadcastT NativeTableType;
+  typedef S2C_ItemUseBroadcastBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_USER_ID = 4,
+    VT_USE_TYPE = 6,
+    VT_SLOT = 8
+  };
+  uint32_t user_id() const {
+    return GetField<uint32_t>(VT_USER_ID, 0);
+  }
+  ProtoType::Net::ItemUseType use_type() const {
+    return static_cast<ProtoType::Net::ItemUseType>(GetField<int8_t>(VT_USE_TYPE, 0));
+  }
+  uint8_t slot() const {
+    return GetField<uint8_t>(VT_SLOT, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_USER_ID, 4) &&
+           VerifyField<int8_t>(verifier, VT_USE_TYPE, 1) &&
+           VerifyField<uint8_t>(verifier, VT_SLOT, 1) &&
+           verifier.EndTable();
+  }
+  S2C_ItemUseBroadcastT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_ItemUseBroadcastT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_ItemUseBroadcast> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemUseBroadcastT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_ItemUseBroadcastBuilder {
+  typedef S2C_ItemUseBroadcast Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_user_id(uint32_t user_id) {
+    fbb_.AddElement<uint32_t>(S2C_ItemUseBroadcast::VT_USER_ID, user_id, 0);
+  }
+  void add_use_type(ProtoType::Net::ItemUseType use_type) {
+    fbb_.AddElement<int8_t>(S2C_ItemUseBroadcast::VT_USE_TYPE, static_cast<int8_t>(use_type), 0);
+  }
+  void add_slot(uint8_t slot) {
+    fbb_.AddElement<uint8_t>(S2C_ItemUseBroadcast::VT_SLOT, slot, 0);
+  }
+  explicit S2C_ItemUseBroadcastBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_ItemUseBroadcast> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_ItemUseBroadcast>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_ItemUseBroadcast> CreateS2C_ItemUseBroadcast(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t user_id = 0,
+    ProtoType::Net::ItemUseType use_type = ProtoType::Net::ItemUseType::Consume,
+    uint8_t slot = 0) {
+  S2C_ItemUseBroadcastBuilder builder_(_fbb);
+  builder_.add_user_id(user_id);
+  builder_.add_slot(slot);
+  builder_.add_use_type(use_type);
+  return builder_.Finish();
+}
+
+struct S2C_ItemUseBroadcast::Traits {
+  using type = S2C_ItemUseBroadcast;
+  static auto constexpr Create = CreateS2C_ItemUseBroadcast;
+};
+
+::flatbuffers::Offset<S2C_ItemUseBroadcast> CreateS2C_ItemUseBroadcast(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemUseBroadcastT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline C2S_ItemUseRequestT::C2S_ItemUseRequestT(const C2S_ItemUseRequestT &o)
       : header((o.header) ? new ProtoType::Net::Header(*o.header) : nullptr),
         item_instance_id(o.item_instance_id),
@@ -356,6 +441,38 @@ inline ::flatbuffers::Offset<S2C_ItemUseResult> S2C_ItemUseResult::Pack(::flatbu
       _use_type,
       _result,
       _value);
+}
+
+inline S2C_ItemUseBroadcastT *S2C_ItemUseBroadcast::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_ItemUseBroadcastT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_ItemUseBroadcast::UnPackTo(S2C_ItemUseBroadcastT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = user_id(); _o->user_id = _e; }
+  { auto _e = use_type(); _o->use_type = _e; }
+  { auto _e = slot(); _o->slot = _e; }
+}
+
+inline ::flatbuffers::Offset<S2C_ItemUseBroadcast> CreateS2C_ItemUseBroadcast(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemUseBroadcastT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_ItemUseBroadcast::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_ItemUseBroadcast> S2C_ItemUseBroadcast::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemUseBroadcastT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_ItemUseBroadcastT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _user_id = _o->user_id;
+  auto _use_type = _o->use_type;
+  auto _slot = _o->slot;
+  return ProtoType::Net::CreateS2C_ItemUseBroadcast(
+      _fbb,
+      _user_id,
+      _use_type,
+      _slot);
 }
 
 }  // namespace Net

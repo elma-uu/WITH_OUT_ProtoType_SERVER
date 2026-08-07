@@ -41,13 +41,14 @@ enum class Payload : uint8_t {
   S2C_AttackBroadcast = 10,
   C2S_ItemUseRequest = 11,
   S2C_ItemUseResult = 12,
-  C2S_InteractRequest = 13,
-  S2C_InteractResult = 14,
+  S2C_ItemUseBroadcast = 13,
+  C2S_InteractRequest = 14,
+  S2C_InteractResult = 15,
   MIN = NONE,
   MAX = S2C_InteractResult
 };
 
-inline const Payload (&EnumValuesPayload())[15] {
+inline const Payload (&EnumValuesPayload())[16] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -62,6 +63,7 @@ inline const Payload (&EnumValuesPayload())[15] {
     Payload::S2C_AttackBroadcast,
     Payload::C2S_ItemUseRequest,
     Payload::S2C_ItemUseResult,
+    Payload::S2C_ItemUseBroadcast,
     Payload::C2S_InteractRequest,
     Payload::S2C_InteractResult
   };
@@ -69,7 +71,7 @@ inline const Payload (&EnumValuesPayload())[15] {
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[16] = {
+  static const char * const names[17] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -83,6 +85,7 @@ inline const char * const *EnumNamesPayload() {
     "S2C_AttackBroadcast",
     "C2S_ItemUseRequest",
     "S2C_ItemUseResult",
+    "S2C_ItemUseBroadcast",
     "C2S_InteractRequest",
     "S2C_InteractResult",
     nullptr
@@ -148,6 +151,10 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_ItemUseResult> {
   static const Payload enum_value = Payload::S2C_ItemUseResult;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::S2C_ItemUseBroadcast> {
+  static const Payload enum_value = Payload::S2C_ItemUseBroadcast;
+};
+
 template<> struct PayloadTraits<ProtoType::Net::C2S_InteractRequest> {
   static const Payload enum_value = Payload::C2S_InteractRequest;
 };
@@ -206,6 +213,10 @@ template<> struct PayloadUnionTraits<ProtoType::Net::C2S_ItemUseRequestT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_ItemUseResultT> {
   static const Payload enum_value = Payload::S2C_ItemUseResult;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_ItemUseBroadcastT> {
+  static const Payload enum_value = Payload::S2C_ItemUseBroadcast;
 };
 
 template<> struct PayloadUnionTraits<ProtoType::Net::C2S_InteractRequestT> {
@@ -342,6 +353,14 @@ struct PayloadUnion {
     return type == Payload::S2C_ItemUseResult ?
       reinterpret_cast<const ProtoType::Net::S2C_ItemUseResultT *>(value) : nullptr;
   }
+  ProtoType::Net::S2C_ItemUseBroadcastT *AsS2C_ItemUseBroadcast() {
+    return type == Payload::S2C_ItemUseBroadcast ?
+      reinterpret_cast<ProtoType::Net::S2C_ItemUseBroadcastT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_ItemUseBroadcastT *AsS2C_ItemUseBroadcast() const {
+    return type == Payload::S2C_ItemUseBroadcast ?
+      reinterpret_cast<const ProtoType::Net::S2C_ItemUseBroadcastT *>(value) : nullptr;
+  }
   ProtoType::Net::C2S_InteractRequestT *AsC2S_InteractRequest() {
     return type == Payload::C2S_InteractRequest ?
       reinterpret_cast<ProtoType::Net::C2S_InteractRequestT *>(value) : nullptr;
@@ -421,6 +440,9 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ProtoType::Net::S2C_ItemUseResult *payload_as_S2C_ItemUseResult() const {
     return payload_type() == ProtoType::Net::Payload::S2C_ItemUseResult ? static_cast<const ProtoType::Net::S2C_ItemUseResult *>(payload()) : nullptr;
   }
+  const ProtoType::Net::S2C_ItemUseBroadcast *payload_as_S2C_ItemUseBroadcast() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_ItemUseBroadcast ? static_cast<const ProtoType::Net::S2C_ItemUseBroadcast *>(payload()) : nullptr;
+  }
   const ProtoType::Net::C2S_InteractRequest *payload_as_C2S_InteractRequest() const {
     return payload_type() == ProtoType::Net::Payload::C2S_InteractRequest ? static_cast<const ProtoType::Net::C2S_InteractRequest *>(payload()) : nullptr;
   }
@@ -486,6 +508,10 @@ template<> inline const ProtoType::Net::C2S_ItemUseRequest *Packet::payload_as<P
 
 template<> inline const ProtoType::Net::S2C_ItemUseResult *Packet::payload_as<ProtoType::Net::S2C_ItemUseResult>() const {
   return payload_as_S2C_ItemUseResult();
+}
+
+template<> inline const ProtoType::Net::S2C_ItemUseBroadcast *Packet::payload_as<ProtoType::Net::S2C_ItemUseBroadcast>() const {
+  return payload_as_S2C_ItemUseBroadcast();
 }
 
 template<> inline const ProtoType::Net::C2S_InteractRequest *Packet::payload_as<ProtoType::Net::C2S_InteractRequest>() const {
@@ -617,6 +643,10 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemUseResult *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::S2C_ItemUseBroadcast: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemUseBroadcast *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     case Payload::C2S_InteractRequest: {
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_InteractRequest *>(obj);
       return verifier.VerifyTable(ptr);
@@ -693,6 +723,10 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemUseResult *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::S2C_ItemUseBroadcast: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemUseBroadcast *>(obj);
+      return ptr->UnPack(resolver);
+    }
     case Payload::C2S_InteractRequest: {
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_InteractRequest *>(obj);
       return ptr->UnPack(resolver);
@@ -756,6 +790,10 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemUseResultT *>(value);
       return CreateS2C_ItemUseResult(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::S2C_ItemUseBroadcast: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemUseBroadcastT *>(value);
+      return CreateS2C_ItemUseBroadcast(_fbb, ptr, _rehasher).Union();
+    }
     case Payload::C2S_InteractRequest: {
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_InteractRequestT *>(value);
       return CreateC2S_InteractRequest(_fbb, ptr, _rehasher).Union();
@@ -816,6 +854,10 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_ItemUseResult: {
       value = new ProtoType::Net::S2C_ItemUseResultT(*reinterpret_cast<ProtoType::Net::S2C_ItemUseResultT *>(u.value));
+      break;
+    }
+    case Payload::S2C_ItemUseBroadcast: {
+      value = new ProtoType::Net::S2C_ItemUseBroadcastT(*reinterpret_cast<ProtoType::Net::S2C_ItemUseBroadcastT *>(u.value));
       break;
     }
     case Payload::C2S_InteractRequest: {
@@ -890,6 +932,11 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_ItemUseResult: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_ItemUseResultT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_ItemUseBroadcast: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_ItemUseBroadcastT *>(value);
       delete ptr;
       break;
     }

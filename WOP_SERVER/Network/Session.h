@@ -48,6 +48,11 @@ namespace Wop
         uint32_t GetId() const { return id_; }
         ProtoType::Net::Vec3 GetPosition() const { return position_; }
         ProtoType::Net::Rotator GetLook() const { return look_; }
+        // Last weapon type this session equipped (EWeaponType on the client
+        // side; 0 = none), updated from C2S_ItemUseRequest{use_type: Equip}.
+        // Used to tell newly-joining clients what everyone already connected
+        // is currently holding.
+        uint8_t GetWeaponType() const { return weaponType_; }
 
     private:
         bool PostRecv();      // caller must hold lock_
@@ -75,6 +80,7 @@ namespace Wop
         // it's used.
         ProtoType::Net::Vec3 position_{};
         ProtoType::Net::Rotator look_{};
+        uint8_t weaponType_ = 0;
 
         RIO_RQ rq_ = RIO_INVALID_RQ;
         RIO_BUFFERID recvBufferId_ = RIO_INVALID_BUFFERID;

@@ -225,6 +225,19 @@ namespace Wop
                     FinishSizePrefixedPacketBuffer(fbb, reply);
                     EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                 static_cast<uint32_t>(fbb.GetSize()));
+
+                    // Also tell the newly-joining client what this existing
+                    // player is currently holding, so their weapon shows up
+                    // right away instead of only on their next weapon swap.
+                    if (const uint8_t otherWeaponType = other->GetWeaponType(); otherWeaponType != 0)
+                    {
+                        flatbuffers::FlatBufferBuilder equipFbb;
+                        auto equip = CreateS2C_ItemUseBroadcast(equipFbb, other->GetId(), ItemUseType::Equip, otherWeaponType);
+                        auto equipReply = CreatePacket(equipFbb, Payload::S2C_ItemUseBroadcast, equip.Union());
+                        FinishSizePrefixedPacketBuffer(equipFbb, equipReply);
+                        EnqueueEcho(reinterpret_cast<const char*>(equipFbb.GetBufferPointer()),
+                                    static_cast<uint32_t>(equipFbb.GetSize()));
+                    }
                 }
 
                 // 3) Tell everyone else that this player just joined.
@@ -274,6 +287,31 @@ namespace Wop
                 const Vec3 direction = req->direction() ? *req->direction() : Vec3(0.0f, 0.0f, 0.0f);
                 auto broadcast = CreateS2C_AttackBroadcast(fbb, id_, req->weapon_slot(), req->attack_type(), &origin, &direction);
                 auto reply = CreatePacket(fbb, Payload::S2C_AttackBroadcast, broadcast.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            case Payload::C2S_ItemUseRequest:
+            {
+                const auto* req = packet->payload_as_C2S_ItemUseRequest();
+                if (!req)
+                    break;
+
+                // Remember what this session is currently holding so future
+                // joiners can be told about it immediately (see the roster
+                // loop in the C2S_Login case above).
+                if (req->use_type() == ItemUseType::Equip)
+                    weaponType_ = req->slot();
+
+                // Broadcast generically for every use_type; the client
+                // decides what (if anything) to do with each type. Currently
+                // Reload and Equip are consumed by the client to mirror the
+                // reload motion / held-weapon visual.
+                flatbuffers::FlatBufferBuilder fbb;
+                auto broadcast = CreateS2C_ItemUseBroadcast(fbb, id_, req->use_type(), req->slot());
+                auto reply = CreatePacket(fbb, Payload::S2C_ItemUseBroadcast, broadcast.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
                 server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));

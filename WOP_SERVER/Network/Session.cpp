@@ -6,13 +6,11 @@
 #include <cstring>
 #include <string>
 
-/*-------------------
- 클라이언트 액션 로그 문자열 변환
--------------------*/
 namespace
 {
     // Human-readable description of a client action, for the server console.
-    // Falls back to the raw payload name for anything not called out below.
+    // Falls back to the raw payload name for anything not called out below
+    // (S2C_* payloads should never arrive from a client in the first place).
     const char* DescribeAction(const ProtoType::Net::Packet* packet)
     {
         using namespace ProtoType::Net;
@@ -80,9 +78,6 @@ namespace
 
 namespace Wop
 {
-    /*-------------------
-     생성/소멸
-    -------------------*/
     Session::Session(SOCKET socket, uint32_t id, RIO_CQ recvCq, RIO_CQ sendCq,
                       EchoServer& server, std::function<void(uint32_t)> onClosed)
         : socket_(socket)
@@ -130,9 +125,6 @@ namespace Wop
         return PostRecv();
     }
 
-    /*-------------------
-     RIO 송수신 큐잉
-    -------------------*/
     bool Session::PostRecv()
     {
         if (!recvBuffer_.ReserveWritable(1))
@@ -198,9 +190,6 @@ namespace Wop
         EnqueueEcho(data, len);
     }
 
-    /*-------------------
-     멀티플레이어 브로드캐스트 처리 (로그인/이동/공격/아이템 사용)
-    -------------------*/
     void Session::BroadcastGameplayState(const ProtoType::Net::Packet* packet)
     {
         using namespace ProtoType::Net;
@@ -237,7 +226,9 @@ namespace Wop
                     EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                 static_cast<uint32_t>(fbb.GetSize()));
 
-                    // Also tell them what this player currently has equipped.
+                    // Also tell the newly-joining client what this existing
+                    // player is currently holding, so their weapon shows up
+                    // right away instead of only on their next weapon swap.
                     if (const uint8_t otherWeaponType = other->GetWeaponType(); otherWeaponType != 0)
                     {
                         flatbuffers::FlatBufferBuilder equipFbb;
@@ -308,11 +299,16 @@ namespace Wop
                 if (!req)
                     break;
 
-                // Remember it for the roster loop above (new joiners).
+                // Remember what this session is currently holding so future
+                // joiners can be told about it immediately (see the roster
+                // loop in the C2S_Login case above).
                 if (req->use_type() == ItemUseType::Equip)
                     weaponType_ = req->slot();
 
-                // Broadcast every use_type; the client decides what to do.
+                // Broadcast generically for every use_type; the client
+                // decides what (if anything) to do with each type. Currently
+                // Reload and Equip are consumed by the client to mirror the
+                // reload motion / held-weapon visual.
                 flatbuffers::FlatBufferBuilder fbb;
                 auto broadcast = CreateS2C_ItemUseBroadcast(fbb, id_, req->use_type(), req->slot());
                 auto reply = CreatePacket(fbb, Payload::S2C_ItemUseBroadcast, broadcast.Union());
@@ -327,9 +323,6 @@ namespace Wop
         }
     }
 
-    /*-------------------
-     수신 버퍼 프레이밍 (패킷 단위로 잘라서 처리)
-    -------------------*/
     void Session::ProcessRecvBuffer()
     {
         for (;;)
@@ -366,8 +359,10 @@ namespace Wop
 
             BroadcastGameplayState(packet);
 
-            // Login/MoveInput already got a proper reply above; skip the
-            // redundant self-echo for those two.
+            // Login/MoveInput already get a proper reply (S2C_LoginSuccess +
+            // roster/join broadcast, or S2C_MoveState broadcast) above; also
+            // self-echoing the raw C2S_* packet would just be stream noise
+            // that could be mistaken for a real S2C_* message.
             const auto type = packet->payload_type();
             const bool skipSelfEcho =
                 (type == ProtoType::Net::Payload::C2S_Login || type == ProtoType::Net::Payload::C2S_MoveInput);
@@ -380,9 +375,6 @@ namespace Wop
         }
     }
 
-    /*-------------------
-     RIO 완료 콜백 (워커 스레드에서 호출)
-    -------------------*/
     void Session::OnRecvCompletion(bool success, uint32_t bytesTransferred)
     {
         {
@@ -431,9 +423,6 @@ namespace Wop
         ReleaseIfIdle();
     }
 
-    /*-------------------
-     세션 종료
-    -------------------*/
     void Session::Close(const char* reason)
     {
         if (closing_.exchange(true, std::memory_order_acq_rel))

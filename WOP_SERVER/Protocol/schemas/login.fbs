@@ -1,8 +1,15 @@
+include "common.fbs";
+
 namespace ProtoType.Net;
 
 table C2S_Login {
   auth_token: string;
   client_version: string;
+  // Account credentials against the server's MSSQL Accounts table. A
+  // username with no existing account is auto-registered on first login;
+  // an existing username requires the matching password.
+  username: string;
+  password: string;
 }
 
 enum LoginFailReason : byte {
@@ -21,4 +28,11 @@ table S2C_LoginFail {
 
 table S2C_LoginSuccess {
   player_id: uint32;
+  // Restored from the account's saved PlayerProgress row, if any (see
+  // has_saved_progress); otherwise these are unset and the client keeps
+  // its normal deterministic spawn behavior.
+  position: Vec3;
+  look: Rotator;
+  weapon_type: ubyte;
+  has_saved_progress: bool;
 }

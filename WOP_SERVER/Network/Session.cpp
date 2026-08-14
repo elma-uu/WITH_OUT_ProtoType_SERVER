@@ -1,6 +1,7 @@
 ﻿#include "Session.h"
 #include "EchoServer.h"
 #include "RioApi.h"
+#include "Database.h"
 #include "packet.h"
 #include <cmath>
 #include <cstdio>
@@ -199,14 +200,60 @@ namespace Wop
         {
             case Payload::C2S_Login:
             {
-                // Cheap deterministic spawn point so players don't stack.
-                position_ = Vec3(static_cast<float>(id_ % 8) * 200.0f, 0.0f, 100.0f);
-                look_ = Rotator(0.0f, 0.0f, 0.0f);
+                const auto* req = packet->payload_as_C2S_Login();
 
-                // 1) Tell this client its own player id.
+                // Real account auth is opt-in: only attempted if the client
+                // actually sent credentials (older/test clients that only
+                // send auth_token still log in with no persistence, same as
+                // before this feature existed).
+                bool hasSavedProgress = false;
+                Vec3 savedPosition{};
+                Rotator savedLook{};
+                uint8_t savedWeaponType = 0;
+
+                if (req && req->username() && req->username()->size() > 0
+                    && req->password() && Database::Get().IsConnected())
+                {
+                    const std::string username = req->username()->str();
+                    const std::string password = req->password()->str();
+
+                    int accountId = -1;
+                    if (!Database::Get().AuthenticateOrRegister(username, password, accountId))
+                    {
+                        // Wrong password for an existing username: reject
+                        // outright, don't spawn this session into the game.
+                        flatbuffers::FlatBufferBuilder fbb;
+                        auto messageOffset = fbb.CreateString("Invalid username or password.");
+                        auto fail = CreateS2C_LoginFail(fbb, LoginFailReason::InvalidToken, messageOffset);
+                        auto reply = CreatePacket(fbb, Payload::S2C_LoginFail, fail.Union());
+                        FinishSizePrefixedPacketBuffer(fbb, reply);
+                        EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                    static_cast<uint32_t>(fbb.GetSize()));
+                        break;
+                    }
+
+                    accountId_ = accountId;
+                    hasSavedProgress = Database::Get().LoadProgress(accountId, savedPosition, savedLook, savedWeaponType);
+                }
+
+                if (hasSavedProgress)
+                {
+                    position_ = savedPosition;
+                    look_ = savedLook;
+                    weaponType_ = savedWeaponType;
+                }
+                else
+                {
+                    // Cheap deterministic spawn point so players don't stack.
+                    position_ = Vec3(static_cast<float>(id_ % 8) * 200.0f, 0.0f, 100.0f);
+                    look_ = Rotator(0.0f, 0.0f, 0.0f);
+                }
+
+                // 1) Tell this client its own player id (+ restored
+                //    position/weapon, if this account had saved progress).
                 {
                     flatbuffers::FlatBufferBuilder fbb;
-                    auto success = CreateS2C_LoginSuccess(fbb, id_);
+                    auto success = CreateS2C_LoginSuccess(fbb, id_, &position_, &look_, weaponType_, hasSavedProgress);
                     auto reply = CreatePacket(fbb, Payload::S2C_LoginSuccess, success.Union());
                     FinishSizePrefixedPacketBuffer(fbb, reply);
                     EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
@@ -252,6 +299,19 @@ namespace Wop
                     server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                        static_cast<uint32_t>(fbb.GetSize()));
                 }
+
+                // If restored progress means this player already has a
+                // weapon out, tell everyone else too (mirrors step 2 above,
+                // just in the other direction).
+                if (weaponType_ != 0)
+                {
+                    flatbuffers::FlatBufferBuilder equipFbb;
+                    auto equip = CreateS2C_ItemUseBroadcast(equipFbb, id_, ItemUseType::Equip, weaponType_);
+                    auto equipReply = CreatePacket(equipFbb, Payload::S2C_ItemUseBroadcast, equip.Union());
+                    FinishSizePrefixedPacketBuffer(equipFbb, equipReply);
+                    server_.Broadcast(id_, reinterpret_cast<const char*>(equipFbb.GetBufferPointer()),
+                                       static_cast<uint32_t>(equipFbb.GetSize()));
+                }
                 break;
             }
 
@@ -265,6 +325,22 @@ namespace Wop
                     position_ = *pos;
                 if (const auto* lookField = move->look())
                     look_ = *lookField;
+
+                // Throttled progress save: MoveInput arrives ~10/sec while a
+                // player is active, far too often for a DB write, so only
+                // persist every few seconds. A final save also happens on
+                // disconnect (FlushProgress), so this is just "don't lose
+                // more than a few seconds" rather than a strict guarantee.
+                if (accountId_ >= 0)
+                {
+                    constexpr std::chrono::seconds kSaveInterval(5);
+                    const auto now = std::chrono::steady_clock::now();
+                    if (now - lastProgressSave_ >= kSaveInterval)
+                    {
+                        lastProgressSave_ = now;
+                        Database::Get().SaveProgress(accountId_, position_, look_, weaponType_);
+                    }
+                }
 
                 flatbuffers::FlatBufferBuilder fbb;
                 const Vec3 velocity(0.0f, 0.0f, 0.0f);
@@ -514,5 +590,13 @@ namespace Wop
 
         if (onClosed_)
             onClosed_(id_);
+    }
+
+    void Session::FlushProgress()
+    {
+        if (accountId_ < 0)
+            return;
+
+        Database::Get().SaveProgress(accountId_, position_, look_, weaponType_);
     }
 }

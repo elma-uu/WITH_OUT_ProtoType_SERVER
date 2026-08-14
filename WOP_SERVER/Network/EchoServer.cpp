@@ -295,16 +295,18 @@ namespace Wop
 
     void EchoServer::RejectServerFull(SOCKET clientSocket)
     {
-        flatbuffers::FlatBufferBuilder fbb;
-        auto message = fbb.CreateString("Server full (max 2 players)");
-        auto fail = ProtoType::Net::CreateS2C_LoginFail(fbb, ProtoType::Net::LoginFailReason::ServerFull, message);
-        auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_LoginFail, fail.Union());
-        ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
-
-        // Best-effort, blocking send: a client that's about to be told the
-        // server is full isn't worth building out a real async send path for.
-        send(clientSocket, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-             static_cast<int>(fbb.GetSize()), 0);
+        // No S2C_LoginFail here, deliberately: this socket was created with
+        // WSA_FLAG_REGISTERED_IO (see AcceptLoop/CreateListenSocket), and
+        // MSDN is explicit that such a socket only supports the RIO
+        // function table -- plain send() fails on it with WSAENOTSOCK
+        // (confirmed while building this). Routing the rejection through a
+        // real Session just to say "full" would mean either registering it
+        // in sessions_ (defeating the cap until the client disconnects
+        // itself) or closesocket()'ing right after posting a RIOSend, which
+        // races the in-flight completion. Simplest correct option: just
+        // close: the client's own "unexpected disconnect" handling (see
+        // UProtoNetClientSubsystem::Tick) already re-shows the connect
+        // prompt.
         closesocket(clientSocket);
     }
 
@@ -324,6 +326,11 @@ namespace Wop
         if (keepAlive)
         {
             std::printf("[Session %u] disconnected\n", sessionId);
+
+            // Best-effort final save so a reconnect picks up close to where
+            // this session left off (no-op if it never logged into an
+            // account -- see Session::FlushProgress).
+            keepAlive->FlushProgress();
 
             // Tell everyone still connected so they can despawn this
             // player's remote actor instead of leaving a frozen ghost.

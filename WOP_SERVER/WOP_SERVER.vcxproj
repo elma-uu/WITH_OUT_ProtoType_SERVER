@@ -116,6 +116,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
        <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -132,6 +133,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
        <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
 
@@ -139,6 +141,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Network\EchoServer.cpp" />
     <ClCompile Include="Network\Session.cpp" />
+    <ClCompile Include="Network\Database.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Network\NetCommon.h" />
@@ -146,6 +149,7 @@
     <ClInclude Include="Network\RioApi.h" />
     <ClInclude Include="Network\Session.h" />
     <ClInclude Include="Network\EchoServer.h" />
+    <ClInclude Include="Network\Database.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

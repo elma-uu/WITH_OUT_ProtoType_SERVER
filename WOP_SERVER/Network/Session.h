@@ -3,6 +3,7 @@
 #include "RingBuffer.h"
 #include "common.h"
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -59,6 +60,12 @@ namespace Wop
         // newly-joining clients what everyone is currently holding.
         uint8_t GetWeaponType() const { return weaponType_; }
 
+        // Best-effort final progress save on disconnect. No-op if this
+        // session never logged into a DB account (accountId_ < 0). Called
+        // by EchoServer::UnregisterSession, outside of lock_ -- same known,
+        // accepted cross-thread read as GetPosition()/GetLook() above.
+        void FlushProgress();
+
     private:
         /*-------------------
          내부 헬퍼 (모두 lock_ 보유 상태에서 호출)
@@ -91,11 +98,18 @@ namespace Wop
         EchoServer& server_;
         std::function<void(uint32_t)> onClosed_;
 
-        // Read cross-thread via GetPosition()/GetLook() without locking
-        // (known, accepted race -- worst case a stale position/look).
+        // Read cross-thread via GetPosition()/GetLook()/GetWeaponType()/
+        // FlushProgress() without locking (known, accepted race -- worst
+        // case a stale position/look/weapon or a slightly-stale DB save).
         ProtoType::Net::Vec3 position_{};
         ProtoType::Net::Rotator look_{};
         uint8_t weaponType_ = 0;
+
+        // Set once C2S_Login authenticates against dbo.Accounts; -1 means
+        // "not logged into an account" (e.g. no username/password sent, or
+        // the DB is unreachable), in which case progress is never saved.
+        int accountId_ = -1;
+        std::chrono::steady_clock::time_point lastProgressSave_{};
 
         RIO_RQ rq_ = RIO_INVALID_RQ;
         RIO_BUFFERID recvBufferId_ = RIO_INVALID_BUFFERID;

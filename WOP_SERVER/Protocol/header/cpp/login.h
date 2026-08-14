@@ -13,6 +13,8 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
               FLATBUFFERS_VERSION_REVISION == 19,
              "Non-compatible flatbuffers version included");
 
+#include "common.h"
+
 namespace ProtoType {
 namespace Net {
 
@@ -74,6 +76,8 @@ struct C2S_LoginT : public ::flatbuffers::NativeTable {
   typedef C2S_Login TableType;
   std::string auth_token{};
   std::string client_version{};
+  std::string username{};
+  std::string password{};
 };
 
 struct C2S_Login FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -82,13 +86,21 @@ struct C2S_Login FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_AUTH_TOKEN = 4,
-    VT_CLIENT_VERSION = 6
+    VT_CLIENT_VERSION = 6,
+    VT_USERNAME = 8,
+    VT_PASSWORD = 10
   };
   const ::flatbuffers::String *auth_token() const {
     return GetPointer<const ::flatbuffers::String *>(VT_AUTH_TOKEN);
   }
   const ::flatbuffers::String *client_version() const {
     return GetPointer<const ::flatbuffers::String *>(VT_CLIENT_VERSION);
+  }
+  const ::flatbuffers::String *username() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_USERNAME);
+  }
+  const ::flatbuffers::String *password() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_PASSWORD);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -97,6 +109,10 @@ struct C2S_Login FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(auth_token()) &&
            VerifyOffset(verifier, VT_CLIENT_VERSION) &&
            verifier.VerifyString(client_version()) &&
+           VerifyOffset(verifier, VT_USERNAME) &&
+           verifier.VerifyString(username()) &&
+           VerifyOffset(verifier, VT_PASSWORD) &&
+           verifier.VerifyString(password()) &&
            verifier.EndTable();
   }
   C2S_LoginT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -114,6 +130,12 @@ struct C2S_LoginBuilder {
   void add_client_version(::flatbuffers::Offset<::flatbuffers::String> client_version) {
     fbb_.AddOffset(C2S_Login::VT_CLIENT_VERSION, client_version);
   }
+  void add_username(::flatbuffers::Offset<::flatbuffers::String> username) {
+    fbb_.AddOffset(C2S_Login::VT_USERNAME, username);
+  }
+  void add_password(::flatbuffers::Offset<::flatbuffers::String> password) {
+    fbb_.AddOffset(C2S_Login::VT_PASSWORD, password);
+  }
   explicit C2S_LoginBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -128,8 +150,12 @@ struct C2S_LoginBuilder {
 inline ::flatbuffers::Offset<C2S_Login> CreateC2S_Login(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<::flatbuffers::String> auth_token = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> client_version = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> client_version = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> username = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> password = 0) {
   C2S_LoginBuilder builder_(_fbb);
+  builder_.add_password(password);
+  builder_.add_username(username);
   builder_.add_client_version(client_version);
   builder_.add_auth_token(auth_token);
   return builder_.Finish();
@@ -143,13 +169,19 @@ struct C2S_Login::Traits {
 inline ::flatbuffers::Offset<C2S_Login> CreateC2S_LoginDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const char *auth_token = nullptr,
-    const char *client_version = nullptr) {
+    const char *client_version = nullptr,
+    const char *username = nullptr,
+    const char *password = nullptr) {
   auto auth_token__ = auth_token ? _fbb.CreateString(auth_token) : 0;
   auto client_version__ = client_version ? _fbb.CreateString(client_version) : 0;
+  auto username__ = username ? _fbb.CreateString(username) : 0;
+  auto password__ = password ? _fbb.CreateString(password) : 0;
   return ProtoType::Net::CreateC2S_Login(
       _fbb,
       auth_token__,
-      client_version__);
+      client_version__,
+      username__,
+      password__);
 }
 
 ::flatbuffers::Offset<C2S_Login> CreateC2S_Login(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_LoginT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -239,6 +271,14 @@ inline ::flatbuffers::Offset<S2C_LoginFail> CreateS2C_LoginFailDirect(
 struct S2C_LoginSuccessT : public ::flatbuffers::NativeTable {
   typedef S2C_LoginSuccess TableType;
   uint32_t player_id = 0;
+  std::unique_ptr<ProtoType::Net::Vec3> position{};
+  std::unique_ptr<ProtoType::Net::Rotator> look{};
+  uint8_t weapon_type = 0;
+  bool has_saved_progress = false;
+  S2C_LoginSuccessT() = default;
+  S2C_LoginSuccessT(const S2C_LoginSuccessT &o);
+  S2C_LoginSuccessT(S2C_LoginSuccessT&&) FLATBUFFERS_NOEXCEPT = default;
+  S2C_LoginSuccessT &operator=(S2C_LoginSuccessT o) FLATBUFFERS_NOEXCEPT;
 };
 
 struct S2C_LoginSuccess FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -246,15 +286,35 @@ struct S2C_LoginSuccess FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef S2C_LoginSuccessBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PLAYER_ID = 4
+    VT_PLAYER_ID = 4,
+    VT_POSITION = 6,
+    VT_LOOK = 8,
+    VT_WEAPON_TYPE = 10,
+    VT_HAS_SAVED_PROGRESS = 12
   };
   uint32_t player_id() const {
     return GetField<uint32_t>(VT_PLAYER_ID, 0);
+  }
+  const ProtoType::Net::Vec3 *position() const {
+    return GetStruct<const ProtoType::Net::Vec3 *>(VT_POSITION);
+  }
+  const ProtoType::Net::Rotator *look() const {
+    return GetStruct<const ProtoType::Net::Rotator *>(VT_LOOK);
+  }
+  uint8_t weapon_type() const {
+    return GetField<uint8_t>(VT_WEAPON_TYPE, 0);
+  }
+  bool has_saved_progress() const {
+    return GetField<uint8_t>(VT_HAS_SAVED_PROGRESS, 0) != 0;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_PLAYER_ID, 4) &&
+           VerifyField<ProtoType::Net::Vec3>(verifier, VT_POSITION, 4) &&
+           VerifyField<ProtoType::Net::Rotator>(verifier, VT_LOOK, 4) &&
+           VerifyField<uint8_t>(verifier, VT_WEAPON_TYPE, 1) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_SAVED_PROGRESS, 1) &&
            verifier.EndTable();
   }
   S2C_LoginSuccessT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -269,6 +329,18 @@ struct S2C_LoginSuccessBuilder {
   void add_player_id(uint32_t player_id) {
     fbb_.AddElement<uint32_t>(S2C_LoginSuccess::VT_PLAYER_ID, player_id, 0);
   }
+  void add_position(const ProtoType::Net::Vec3 *position) {
+    fbb_.AddStruct(S2C_LoginSuccess::VT_POSITION, position);
+  }
+  void add_look(const ProtoType::Net::Rotator *look) {
+    fbb_.AddStruct(S2C_LoginSuccess::VT_LOOK, look);
+  }
+  void add_weapon_type(uint8_t weapon_type) {
+    fbb_.AddElement<uint8_t>(S2C_LoginSuccess::VT_WEAPON_TYPE, weapon_type, 0);
+  }
+  void add_has_saved_progress(bool has_saved_progress) {
+    fbb_.AddElement<uint8_t>(S2C_LoginSuccess::VT_HAS_SAVED_PROGRESS, static_cast<uint8_t>(has_saved_progress), 0);
+  }
   explicit S2C_LoginSuccessBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -282,9 +354,17 @@ struct S2C_LoginSuccessBuilder {
 
 inline ::flatbuffers::Offset<S2C_LoginSuccess> CreateS2C_LoginSuccess(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t player_id = 0) {
+    uint32_t player_id = 0,
+    const ProtoType::Net::Vec3 *position = nullptr,
+    const ProtoType::Net::Rotator *look = nullptr,
+    uint8_t weapon_type = 0,
+    bool has_saved_progress = false) {
   S2C_LoginSuccessBuilder builder_(_fbb);
+  builder_.add_look(look);
+  builder_.add_position(position);
   builder_.add_player_id(player_id);
+  builder_.add_has_saved_progress(has_saved_progress);
+  builder_.add_weapon_type(weapon_type);
   return builder_.Finish();
 }
 
@@ -306,6 +386,8 @@ inline void C2S_Login::UnPackTo(C2S_LoginT *_o, const ::flatbuffers::resolver_fu
   (void)_resolver;
   { auto _e = auth_token(); if (_e) _o->auth_token = _e->str(); }
   { auto _e = client_version(); if (_e) _o->client_version = _e->str(); }
+  { auto _e = username(); if (_e) _o->username = _e->str(); }
+  { auto _e = password(); if (_e) _o->password = _e->str(); }
 }
 
 inline ::flatbuffers::Offset<C2S_Login> CreateC2S_Login(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_LoginT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -318,10 +400,14 @@ inline ::flatbuffers::Offset<C2S_Login> C2S_Login::Pack(::flatbuffers::FlatBuffe
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_LoginT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _auth_token = _o->auth_token.empty() ? 0 : _fbb.CreateString(_o->auth_token);
   auto _client_version = _o->client_version.empty() ? 0 : _fbb.CreateString(_o->client_version);
+  auto _username = _o->username.empty() ? 0 : _fbb.CreateString(_o->username);
+  auto _password = _o->password.empty() ? 0 : _fbb.CreateString(_o->password);
   return ProtoType::Net::CreateC2S_Login(
       _fbb,
       _auth_token,
-      _client_version);
+      _client_version,
+      _username,
+      _password);
 }
 
 inline S2C_LoginFailT *S2C_LoginFail::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
@@ -353,6 +439,23 @@ inline ::flatbuffers::Offset<S2C_LoginFail> S2C_LoginFail::Pack(::flatbuffers::F
       _message);
 }
 
+inline S2C_LoginSuccessT::S2C_LoginSuccessT(const S2C_LoginSuccessT &o)
+      : player_id(o.player_id),
+        position((o.position) ? new ProtoType::Net::Vec3(*o.position) : nullptr),
+        look((o.look) ? new ProtoType::Net::Rotator(*o.look) : nullptr),
+        weapon_type(o.weapon_type),
+        has_saved_progress(o.has_saved_progress) {
+}
+
+inline S2C_LoginSuccessT &S2C_LoginSuccessT::operator=(S2C_LoginSuccessT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(player_id, o.player_id);
+  std::swap(position, o.position);
+  std::swap(look, o.look);
+  std::swap(weapon_type, o.weapon_type);
+  std::swap(has_saved_progress, o.has_saved_progress);
+  return *this;
+}
+
 inline S2C_LoginSuccessT *S2C_LoginSuccess::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<S2C_LoginSuccessT>();
   UnPackTo(_o.get(), _resolver);
@@ -363,6 +466,10 @@ inline void S2C_LoginSuccess::UnPackTo(S2C_LoginSuccessT *_o, const ::flatbuffer
   (void)_o;
   (void)_resolver;
   { auto _e = player_id(); _o->player_id = _e; }
+  { auto _e = position(); if (_e) _o->position = std::unique_ptr<ProtoType::Net::Vec3>(new ProtoType::Net::Vec3(*_e)); }
+  { auto _e = look(); if (_e) _o->look = std::unique_ptr<ProtoType::Net::Rotator>(new ProtoType::Net::Rotator(*_e)); }
+  { auto _e = weapon_type(); _o->weapon_type = _e; }
+  { auto _e = has_saved_progress(); _o->has_saved_progress = _e; }
 }
 
 inline ::flatbuffers::Offset<S2C_LoginSuccess> CreateS2C_LoginSuccess(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_LoginSuccessT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -374,9 +481,17 @@ inline ::flatbuffers::Offset<S2C_LoginSuccess> S2C_LoginSuccess::Pack(::flatbuff
   (void)_o;
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_LoginSuccessT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _player_id = _o->player_id;
+  auto _position = _o->position ? _o->position.get() : nullptr;
+  auto _look = _o->look ? _o->look.get() : nullptr;
+  auto _weapon_type = _o->weapon_type;
+  auto _has_saved_progress = _o->has_saved_progress;
   return ProtoType::Net::CreateS2C_LoginSuccess(
       _fbb,
-      _player_id);
+      _player_id,
+      _position,
+      _look,
+      _weapon_type,
+      _has_saved_progress);
 }
 
 }  // namespace Net

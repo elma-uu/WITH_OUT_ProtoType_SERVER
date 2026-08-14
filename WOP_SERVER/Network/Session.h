@@ -72,6 +72,12 @@ namespace Wop
         // (spawn broadcast, position relay). No-op for any other payload.
         void BroadcastGameplayState(const ProtoType::Net::Packet* packet);
 
+        // Approximate hit resolution for C2S_AttackRequest: the server has
+        // no level geometry, so this finds the closest other tracked player
+        // position to the attack ray (within a capsule-sized radius) instead
+        // of a real raycast, and broadcasts the result as S2C_AttackResult.
+        void ResolveAndBroadcastHit(const ProtoType::Net::Vec3& origin, const ProtoType::Net::Vec3& direction, uint8_t weaponSlot);
+
         void Close(const char* reason);
         void ReleaseIfIdle(); // erases the session once no RIO op is in flight
 

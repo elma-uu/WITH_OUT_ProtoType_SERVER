@@ -39,9 +39,10 @@ table S2C_AttackResult {
   damage: float;
 }
 
-// Relayed to every other connected client so they can see this shot; the
-// server does not resolve hits itself (see S2C_AttackResult for that, once
-// server-side hit detection exists).
+// Relayed to every other connected client so they can see this shot
+// (tracer/FX only). The server separately resolves an approximate hit from
+// tracked player positions and broadcasts that as S2C_AttackResult -- it has
+// no level geometry, so this is proximity-to-ray based, not a real raycast.
 table S2C_AttackBroadcast {
   attacker_id: uint32;
   weapon_slot: ubyte;

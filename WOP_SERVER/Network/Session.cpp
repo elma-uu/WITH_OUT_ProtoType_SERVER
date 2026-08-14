@@ -2,6 +2,7 @@
 #include "EchoServer.h"
 #include "RioApi.h"
 #include "packet.h"
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -290,6 +291,8 @@ namespace Wop
                 FinishSizePrefixedPacketBuffer(fbb, reply);
                 server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
+
+                ResolveAndBroadcastHit(origin, direction, req->weapon_slot());
                 break;
             }
 
@@ -321,6 +324,72 @@ namespace Wop
             default:
                 break;
         }
+    }
+
+    void Session::ResolveAndBroadcastHit(const ProtoType::Net::Vec3& origin, const ProtoType::Net::Vec3& direction, uint8_t weaponSlot)
+    {
+        using namespace ProtoType::Net;
+
+        constexpr float kHitRadius = 150.0f;    // stand-in for a character capsule
+        constexpr float kMaxRange = 10000.0f;   // matches the client's own trace range
+        constexpr float kDamagePerHit = 20.0f;  // placeholder; real per-weapon damage lives client-side
+
+        const float dirLenSq = direction.x() * direction.x() + direction.y() * direction.y() + direction.z() * direction.z();
+        if (dirLenSq < 0.0001f)
+            return;
+
+        const float dirLen = std::sqrt(dirLenSq);
+        const float dx = direction.x() / dirLen;
+        const float dy = direction.y() / dirLen;
+        const float dz = direction.z() / dirLen;
+
+        bool found = false;
+        float bestT = kMaxRange;
+        uint32_t bestTargetId = 0;
+        Vec3 bestPosition(0.0f, 0.0f, 0.0f);
+
+        for (const auto& other : server_.SnapshotOtherSessions(id_))
+        {
+            const Vec3 pos = other->GetPosition();
+            const float toX = pos.x() - origin.x();
+            const float toY = pos.y() - origin.y();
+            const float toZ = pos.z() - origin.z();
+
+            // Distance along the ray to the closest approach; behind the
+            // attacker or past max range doesn't count as a hit.
+            const float t = toX * dx + toY * dy + toZ * dz;
+            if (t < 0.0f || t > kMaxRange)
+                continue;
+
+            const float closestX = origin.x() + dx * t;
+            const float closestY = origin.y() + dy * t;
+            const float closestZ = origin.z() + dz * t;
+
+            const float distX = pos.x() - closestX;
+            const float distY = pos.y() - closestY;
+            const float distZ = pos.z() - closestZ;
+            const float distSq = distX * distX + distY * distY + distZ * distZ;
+
+            if (distSq <= kHitRadius * kHitRadius && t < bestT)
+            {
+                found = true;
+                bestT = t;
+                bestTargetId = other->GetId();
+                bestPosition = pos;
+            }
+        }
+
+        flatbuffers::FlatBufferBuilder fbb;
+        auto result = CreateS2C_AttackResult(fbb, /*server_tick*/ 0, id_, bestTargetId,
+            /*weapon_id*/ static_cast<uint32_t>(weaponSlot), found, found ? &bestPosition : nullptr,
+            HitBone::None, found ? kDamagePerHit : 0.0f);
+        auto reply = CreatePacket(fbb, Payload::S2C_AttackResult, result.Union());
+        FinishSizePrefixedPacketBuffer(fbb, reply);
+
+        // Unlike S2C_AttackBroadcast (FX-only, everyone else), the result
+        // matters most to the attacker -- send to self too, not just others.
+        EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()), static_cast<uint32_t>(fbb.GetSize()));
+        server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()), static_cast<uint32_t>(fbb.GetSize()));
     }
 
     void Session::ProcessRecvBuffer()

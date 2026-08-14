@@ -13,6 +13,7 @@ union Payload {
   S2C_LoginSuccess,
   S2C_SendAvatarInfo,
   S2C_SendPlayerInfo,
+  S2C_PlayerLeft,
   C2S_MoveInput,
   S2C_MoveState,
   C2S_AttackRequest,

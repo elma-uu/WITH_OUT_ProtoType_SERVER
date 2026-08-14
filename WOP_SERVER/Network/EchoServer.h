@@ -15,7 +15,9 @@ namespace Wop
         /*-------------------
          생성/시작/정지
         -------------------*/
-        EchoServer(uint16_t port, uint32_t workerThreadCount);
+        // maxPlayers caps concurrent sessions (this is a 2-player game); a
+        // connection beyond that gets S2C_LoginFail{ServerFull} and is closed.
+        EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers = 2);
         ~EchoServer();
 
         EchoServer(const EchoServer&) = delete;
@@ -54,11 +56,17 @@ namespace Wop
         void OnAccepted(SOCKET clientSocket);
         void UnregisterSession(uint32_t sessionId);
 
+        // Rejects a connection once already at maxPlayers_: sends
+        // S2C_LoginFail{reason: ServerFull} (best-effort, blocking) and
+        // closes the socket without ever creating a Session for it.
+        void RejectServerFull(SOCKET clientSocket);
+
         /*-------------------
          멤버 변수
         -------------------*/
         uint16_t port_;
         uint32_t workerThreadCount_;
+        uint32_t maxPlayers_;
 
         bool winsockReady_ = false;
         SOCKET listenSocket_ = INVALID_SOCKET;

@@ -1,5 +1,6 @@
 ﻿#include "EchoServer.h"
 #include "RioApi.h"
+#include "packet.h"
 #include <iterator>
 
 namespace Wop
@@ -7,9 +8,10 @@ namespace Wop
     /*-------------------
      생성/소멸
     -------------------*/
-    EchoServer::EchoServer(uint16_t port, uint32_t workerThreadCount)
+    EchoServer::EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers)
         : port_(port)
         , workerThreadCount_(workerThreadCount == 0 ? 1 : workerThreadCount)
+        , maxPlayers_(maxPlayers == 0 ? 1 : maxPlayers)
     {
     }
 
@@ -253,6 +255,16 @@ namespace Wop
 
     void EchoServer::OnAccepted(SOCKET clientSocket)
     {
+        {
+            std::lock_guard<std::mutex> guard(sessionsLock_);
+            if (sessions_.size() >= maxPlayers_)
+            {
+                std::printf("Rejecting connection: server full (%zu/%u players)\n", sessions_.size(), maxPlayers_);
+                RejectServerFull(clientSocket);
+                return;
+            }
+        }
+
         const uint32_t id = nextSessionId_.fetch_add(1, std::memory_order_relaxed);
 
         auto session = std::make_shared<Session>(
@@ -281,6 +293,21 @@ namespace Wop
         }
     }
 
+    void EchoServer::RejectServerFull(SOCKET clientSocket)
+    {
+        flatbuffers::FlatBufferBuilder fbb;
+        auto message = fbb.CreateString("Server full (max 2 players)");
+        auto fail = ProtoType::Net::CreateS2C_LoginFail(fbb, ProtoType::Net::LoginFailReason::ServerFull, message);
+        auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_LoginFail, fail.Union());
+        ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
+
+        // Best-effort, blocking send: a client that's about to be told the
+        // server is full isn't worth building out a real async send path for.
+        send(clientSocket, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+             static_cast<int>(fbb.GetSize()), 0);
+        closesocket(clientSocket);
+    }
+
     void EchoServer::UnregisterSession(uint32_t sessionId)
     {
         std::shared_ptr<Session> keepAlive;
@@ -295,7 +322,18 @@ namespace Wop
         }
 
         if (keepAlive)
+        {
             std::printf("[Session %u] disconnected\n", sessionId);
+
+            // Tell everyone still connected so they can despawn this
+            // player's remote actor instead of leaving a frozen ghost.
+            flatbuffers::FlatBufferBuilder fbb;
+            auto left = ProtoType::Net::CreateS2C_PlayerLeft(fbb, sessionId);
+            auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_PlayerLeft, left.Union());
+            ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
+            Broadcast(sessionId, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                      static_cast<uint32_t>(fbb.GetSize()));
+        }
 
         // `keepAlive` drops here, destroying the Session (and deregistering
         // its RIO buffers) outside of sessionsLock_.

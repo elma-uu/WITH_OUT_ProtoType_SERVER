@@ -34,21 +34,22 @@ enum class Payload : uint8_t {
   S2C_LoginSuccess = 3,
   S2C_SendAvatarInfo = 4,
   S2C_SendPlayerInfo = 5,
-  C2S_MoveInput = 6,
-  S2C_MoveState = 7,
-  C2S_AttackRequest = 8,
-  S2C_AttackResult = 9,
-  S2C_AttackBroadcast = 10,
-  C2S_ItemUseRequest = 11,
-  S2C_ItemUseResult = 12,
-  S2C_ItemUseBroadcast = 13,
-  C2S_InteractRequest = 14,
-  S2C_InteractResult = 15,
+  S2C_PlayerLeft = 6,
+  C2S_MoveInput = 7,
+  S2C_MoveState = 8,
+  C2S_AttackRequest = 9,
+  S2C_AttackResult = 10,
+  S2C_AttackBroadcast = 11,
+  C2S_ItemUseRequest = 12,
+  S2C_ItemUseResult = 13,
+  S2C_ItemUseBroadcast = 14,
+  C2S_InteractRequest = 15,
+  S2C_InteractResult = 16,
   MIN = NONE,
   MAX = S2C_InteractResult
 };
 
-inline const Payload (&EnumValuesPayload())[16] {
+inline const Payload (&EnumValuesPayload())[17] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -56,6 +57,7 @@ inline const Payload (&EnumValuesPayload())[16] {
     Payload::S2C_LoginSuccess,
     Payload::S2C_SendAvatarInfo,
     Payload::S2C_SendPlayerInfo,
+    Payload::S2C_PlayerLeft,
     Payload::C2S_MoveInput,
     Payload::S2C_MoveState,
     Payload::C2S_AttackRequest,
@@ -71,13 +73,14 @@ inline const Payload (&EnumValuesPayload())[16] {
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[17] = {
+  static const char * const names[18] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
     "S2C_LoginSuccess",
     "S2C_SendAvatarInfo",
     "S2C_SendPlayerInfo",
+    "S2C_PlayerLeft",
     "C2S_MoveInput",
     "S2C_MoveState",
     "C2S_AttackRequest",
@@ -121,6 +124,10 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_SendAvatarInfo> {
 
 template<> struct PayloadTraits<ProtoType::Net::S2C_SendPlayerInfo> {
   static const Payload enum_value = Payload::S2C_SendPlayerInfo;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_PlayerLeft> {
+  static const Payload enum_value = Payload::S2C_PlayerLeft;
 };
 
 template<> struct PayloadTraits<ProtoType::Net::C2S_MoveInput> {
@@ -185,6 +192,10 @@ template<> struct PayloadUnionTraits<ProtoType::Net::S2C_SendAvatarInfoT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_SendPlayerInfoT> {
   static const Payload enum_value = Payload::S2C_SendPlayerInfo;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_PlayerLeftT> {
+  static const Payload enum_value = Payload::S2C_PlayerLeft;
 };
 
 template<> struct PayloadUnionTraits<ProtoType::Net::C2S_MoveInputT> {
@@ -296,6 +307,14 @@ struct PayloadUnion {
   const ProtoType::Net::S2C_SendPlayerInfoT *AsS2C_SendPlayerInfo() const {
     return type == Payload::S2C_SendPlayerInfo ?
       reinterpret_cast<const ProtoType::Net::S2C_SendPlayerInfoT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_PlayerLeftT *AsS2C_PlayerLeft() {
+    return type == Payload::S2C_PlayerLeft ?
+      reinterpret_cast<ProtoType::Net::S2C_PlayerLeftT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_PlayerLeftT *AsS2C_PlayerLeft() const {
+    return type == Payload::S2C_PlayerLeft ?
+      reinterpret_cast<const ProtoType::Net::S2C_PlayerLeftT *>(value) : nullptr;
   }
   ProtoType::Net::C2S_MoveInputT *AsC2S_MoveInput() {
     return type == Payload::C2S_MoveInput ?
@@ -419,6 +438,9 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ProtoType::Net::S2C_SendPlayerInfo *payload_as_S2C_SendPlayerInfo() const {
     return payload_type() == ProtoType::Net::Payload::S2C_SendPlayerInfo ? static_cast<const ProtoType::Net::S2C_SendPlayerInfo *>(payload()) : nullptr;
   }
+  const ProtoType::Net::S2C_PlayerLeft *payload_as_S2C_PlayerLeft() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_PlayerLeft ? static_cast<const ProtoType::Net::S2C_PlayerLeft *>(payload()) : nullptr;
+  }
   const ProtoType::Net::C2S_MoveInput *payload_as_C2S_MoveInput() const {
     return payload_type() == ProtoType::Net::Payload::C2S_MoveInput ? static_cast<const ProtoType::Net::C2S_MoveInput *>(payload()) : nullptr;
   }
@@ -480,6 +502,10 @@ template<> inline const ProtoType::Net::S2C_SendAvatarInfo *Packet::payload_as<P
 
 template<> inline const ProtoType::Net::S2C_SendPlayerInfo *Packet::payload_as<ProtoType::Net::S2C_SendPlayerInfo>() const {
   return payload_as_S2C_SendPlayerInfo();
+}
+
+template<> inline const ProtoType::Net::S2C_PlayerLeft *Packet::payload_as<ProtoType::Net::S2C_PlayerLeft>() const {
+  return payload_as_S2C_PlayerLeft();
 }
 
 template<> inline const ProtoType::Net::C2S_MoveInput *Packet::payload_as<ProtoType::Net::C2S_MoveInput>() const {
@@ -615,6 +641,10 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_SendPlayerInfo *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::S2C_PlayerLeft: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerLeft *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     case Payload::C2S_MoveInput: {
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_MoveInput *>(obj);
       return verifier.VerifyTable(ptr);
@@ -695,6 +725,10 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_SendPlayerInfo *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::S2C_PlayerLeft: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerLeft *>(obj);
+      return ptr->UnPack(resolver);
+    }
     case Payload::C2S_MoveInput: {
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_MoveInput *>(obj);
       return ptr->UnPack(resolver);
@@ -762,6 +796,10 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_SendPlayerInfoT *>(value);
       return CreateS2C_SendPlayerInfo(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::S2C_PlayerLeft: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerLeftT *>(value);
+      return CreateS2C_PlayerLeft(_fbb, ptr, _rehasher).Union();
+    }
     case Payload::C2S_MoveInput: {
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_MoveInputT *>(value);
       return CreateC2S_MoveInput(_fbb, ptr, _rehasher).Union();
@@ -826,6 +864,10 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_SendPlayerInfo: {
       value = new ProtoType::Net::S2C_SendPlayerInfoT(*reinterpret_cast<ProtoType::Net::S2C_SendPlayerInfoT *>(u.value));
+      break;
+    }
+    case Payload::S2C_PlayerLeft: {
+      value = new ProtoType::Net::S2C_PlayerLeftT(*reinterpret_cast<ProtoType::Net::S2C_PlayerLeftT *>(u.value));
       break;
     }
     case Payload::C2S_MoveInput: {
@@ -897,6 +939,11 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_SendPlayerInfo: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_SendPlayerInfoT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_PlayerLeft: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_PlayerLeftT *>(value);
       delete ptr;
       break;
     }

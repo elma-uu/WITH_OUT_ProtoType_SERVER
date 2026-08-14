@@ -39,3 +39,9 @@ table S2C_SendPlayerInfo {
   character_model_id: uint32;
   equipped: [EquippedVisual];
 }
+
+// Broadcast to every remaining client when a player disconnects, so they can
+// despawn that player's remote actor instead of leaving a frozen ghost.
+table S2C_PlayerLeft {
+  player_id: uint32;
+}

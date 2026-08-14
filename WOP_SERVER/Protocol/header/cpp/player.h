@@ -30,6 +30,10 @@ struct S2C_SendPlayerInfo;
 struct S2C_SendPlayerInfoBuilder;
 struct S2C_SendPlayerInfoT;
 
+struct S2C_PlayerLeft;
+struct S2C_PlayerLeftBuilder;
+struct S2C_PlayerLeftT;
+
 enum class EquipSlot : int8_t {
   Head = 0,
   Chest = 1,
@@ -472,6 +476,65 @@ inline ::flatbuffers::Offset<S2C_SendPlayerInfo> CreateS2C_SendPlayerInfoDirect(
 
 ::flatbuffers::Offset<S2C_SendPlayerInfo> CreateS2C_SendPlayerInfo(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_SendPlayerInfoT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct S2C_PlayerLeftT : public ::flatbuffers::NativeTable {
+  typedef S2C_PlayerLeft TableType;
+  uint32_t player_id = 0;
+};
+
+struct S2C_PlayerLeft FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_PlayerLeftT NativeTableType;
+  typedef S2C_PlayerLeftBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PLAYER_ID = 4
+  };
+  uint32_t player_id() const {
+    return GetField<uint32_t>(VT_PLAYER_ID, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_PLAYER_ID, 4) &&
+           verifier.EndTable();
+  }
+  S2C_PlayerLeftT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_PlayerLeftT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_PlayerLeft> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerLeftT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_PlayerLeftBuilder {
+  typedef S2C_PlayerLeft Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_player_id(uint32_t player_id) {
+    fbb_.AddElement<uint32_t>(S2C_PlayerLeft::VT_PLAYER_ID, player_id, 0);
+  }
+  explicit S2C_PlayerLeftBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_PlayerLeft> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_PlayerLeft>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_PlayerLeft> CreateS2C_PlayerLeft(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t player_id = 0) {
+  S2C_PlayerLeftBuilder builder_(_fbb);
+  builder_.add_player_id(player_id);
+  return builder_.Finish();
+}
+
+struct S2C_PlayerLeft::Traits {
+  using type = S2C_PlayerLeft;
+  static auto constexpr Create = CreateS2C_PlayerLeft;
+};
+
+::flatbuffers::Offset<S2C_PlayerLeft> CreateS2C_PlayerLeft(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerLeftT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline EquippedVisualT *EquippedVisual::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<EquippedVisualT>();
   UnPackTo(_o.get(), _resolver);
@@ -636,6 +699,32 @@ inline ::flatbuffers::Offset<S2C_SendPlayerInfo> S2C_SendPlayerInfo::Pack(::flat
       _look,
       _character_model_id,
       _equipped);
+}
+
+inline S2C_PlayerLeftT *S2C_PlayerLeft::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_PlayerLeftT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_PlayerLeft::UnPackTo(S2C_PlayerLeftT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = player_id(); _o->player_id = _e; }
+}
+
+inline ::flatbuffers::Offset<S2C_PlayerLeft> CreateS2C_PlayerLeft(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerLeftT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_PlayerLeft::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_PlayerLeft> S2C_PlayerLeft::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerLeftT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_PlayerLeftT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _player_id = _o->player_id;
+  return ProtoType::Net::CreateS2C_PlayerLeft(
+      _fbb,
+      _player_id);
 }
 
 }  // namespace Net

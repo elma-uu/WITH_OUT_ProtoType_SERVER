@@ -5,11 +5,14 @@ namespace ProtoType.Net;
 table C2S_Login {
   auth_token: string;
   client_version: string;
-  // Account credentials against the server's MSSQL Accounts table. A
-  // username with no existing account is auto-registered on first login;
-  // an existing username requires the matching password.
+  // Account credentials against the server's MSSQL Accounts table.
   username: string;
   password: string;
+  // false (default): login -- username must already exist, password must
+  // match (else S2C_LoginFail{AccountNotFound} / {InvalidToken}).
+  // true: register -- username must NOT already exist (else
+  // S2C_LoginFail{UsernameTaken}), creates a brand new account.
+  is_register: bool;
 }
 
 enum LoginFailReason : byte {
@@ -19,6 +22,10 @@ enum LoginFailReason : byte {
   Banned,
   AlreadyLoggedIn,
   Unknown,
+  // Login attempted (is_register=false) against a username with no account.
+  AccountNotFound,
+  // Register attempted (is_register=true) against a username that's already taken.
+  UsernameTaken,
 }
 
 table S2C_LoginFail {

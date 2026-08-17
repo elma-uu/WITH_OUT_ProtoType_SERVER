@@ -216,15 +216,41 @@ namespace Wop
                 {
                     const std::string username = req->username()->str();
                     const std::string password = req->password()->str();
+                    const bool isRegister = req->is_register();
 
                     int accountId = -1;
-                    if (!Database::Get().AuthenticateOrRegister(username, password, accountId))
+                    const AuthResult result = isRegister
+                        ? Database::Get().Register(username, password, accountId)
+                        : Database::Get().Authenticate(username, password, accountId);
+
+                    if (result != AuthResult::Success)
                     {
-                        // Wrong password for an existing username: reject
-                        // outright, don't spawn this session into the game.
+                        // Reject outright, don't spawn this session into the game.
+                        LoginFailReason reason = LoginFailReason::Unknown;
+                        const char* message = "Unknown error.";
+                        switch (result)
+                        {
+                            case AuthResult::AccountNotFound:
+                                reason = LoginFailReason::AccountNotFound;
+                                message = "No account with that username.";
+                                break;
+                            case AuthResult::WrongPassword:
+                                reason = LoginFailReason::InvalidToken;
+                                message = "Invalid username or password.";
+                                break;
+                            case AuthResult::UsernameTaken:
+                                reason = LoginFailReason::UsernameTaken;
+                                message = "That username is already taken.";
+                                break;
+                            default:
+                                reason = LoginFailReason::Unknown;
+                                message = "Login failed (server error).";
+                                break;
+                        }
+
                         flatbuffers::FlatBufferBuilder fbb;
-                        auto messageOffset = fbb.CreateString("Invalid username or password.");
-                        auto fail = CreateS2C_LoginFail(fbb, LoginFailReason::InvalidToken, messageOffset);
+                        auto messageOffset = fbb.CreateString(message);
+                        auto fail = CreateS2C_LoginFail(fbb, reason, messageOffset);
                         auto reply = CreatePacket(fbb, Payload::S2C_LoginFail, fail.Union());
                         FinishSizePrefixedPacketBuffer(fbb, reply);
                         EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),

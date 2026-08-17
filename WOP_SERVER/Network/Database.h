@@ -9,6 +9,15 @@
 namespace Wop
 {
 
+    enum class AuthResult
+    {
+        Success,
+        AccountNotFound,  // Authenticate(): no account with this username
+        WrongPassword,    // Authenticate(): account exists, password didn't match
+        UsernameTaken,    // Register(): an account with this username already exists
+        DatabaseError,    // not connected, or an ODBC call failed
+    };
+
     class Database
     {
     public:
@@ -20,7 +29,11 @@ namespace Wop
         /*-------------------
          계정
         -------------------*/
-        bool AuthenticateOrRegister(const std::string& username, const std::string& password, int& outAccountId);
+        // Login: username must already exist and password must match.
+        AuthResult Authenticate(const std::string& username, const std::string& password, int& outAccountId);
+
+        // Sign up: username must not already exist. Creates the account.
+        AuthResult Register(const std::string& username, const std::string& password, int& outAccountId);
 
         /*-------------------
          진행 상황 (위치/장착 무기)

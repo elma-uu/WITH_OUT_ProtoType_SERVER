@@ -144,11 +144,11 @@ namespace Wop
         return true;
     }
 
-    bool Database::AuthenticateOrRegister(const std::string& username, const std::string& password, int& outAccountId)
+    AuthResult Database::Authenticate(const std::string& username, const std::string& password, int& outAccountId)
     {
         std::lock_guard<std::mutex> guard(lock_);
         if (!connected_)
-            return false;
+            return AuthResult::DatabaseError;
 
         const std::wstring wideUsername = Utf8ToWide(username);
 
@@ -165,59 +165,99 @@ namespace Wop
             SQL_NTS);
         if (selectRet != SQL_SUCCESS && selectRet != SQL_SUCCESS_WITH_INFO)
         {
-            LogDiag("AuthenticateOrRegister: SELECT", SQL_HANDLE_STMT, stmt);
-            return false;
+            LogDiag("Authenticate: SELECT", SQL_HANDLE_STMT, stmt);
+            return AuthResult::DatabaseError;
+        }
+
+        const SQLRETURN fetchRet = SQLFetch(stmt);
+        if (fetchRet == SQL_NO_DATA)
+        {
+            std::printf("[DB] Login rejected for '%s': no such account\n", username.c_str());
+            return AuthResult::AccountNotFound;
+        }
+        if (fetchRet != SQL_SUCCESS && fetchRet != SQL_SUCCESS_WITH_INFO)
+        {
+            LogDiag("Authenticate: fetch", SQL_HANDLE_STMT, stmt);
+            return AuthResult::DatabaseError;
+        }
+
+        // Existing account: verify the password.
+        SQLINTEGER accountId = 0;
+        uint8_t storedHash[kHashLength]{};
+        uint8_t storedSalt[kSaltLength]{};
+        SQLLEN indicator = 0;
+
+        SQLGetData(stmt, 1, SQL_C_LONG, &accountId, 0, &indicator);
+        SQLGetData(stmt, 2, SQL_C_BINARY, storedHash, sizeof(storedHash), &indicator);
+        SQLGetData(stmt, 3, SQL_C_BINARY, storedSalt, sizeof(storedSalt), &indicator);
+
+        uint8_t computedHash[kHashLength]{};
+        if (!DeriveHash(password, storedSalt, kSaltLength, computedHash, kHashLength))
+            return AuthResult::DatabaseError;
+
+        if (!ConstantTimeEquals(computedHash, storedHash, kHashLength))
+        {
+            std::printf("[DB] Login rejected for '%s': wrong password\n", username.c_str());
+            return AuthResult::WrongPassword;
+        }
+
+        outAccountId = accountId;
+
+        // Best-effort; a failure here shouldn't block the login.
+        SQLHSTMT updateStmt = SQL_NULL_HSTMT;
+        SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &updateStmt);
+        StmtGuard updateGuard(updateStmt);
+        SQLBindParameter(updateStmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accountId, 0, nullptr);
+        SQLExecDirectA(updateStmt,
+            const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                "UPDATE dbo.Accounts SET LastLoginAt = SYSUTCDATETIME() WHERE AccountId = ?")),
+            SQL_NTS);
+
+        return AuthResult::Success;
+    }
+
+    AuthResult Database::Register(const std::string& username, const std::string& password, int& outAccountId)
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (!connected_)
+            return AuthResult::DatabaseError;
+
+        const std::wstring wideUsername = Utf8ToWide(username);
+
+        SQLHSTMT stmt = SQL_NULL_HSTMT;
+        SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &stmt);
+        StmtGuard stmtGuard(stmt);
+
+        SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR, wideUsername.size(), 0,
+            const_cast<wchar_t*>(wideUsername.c_str()), 0, nullptr);
+
+        const SQLRETURN selectRet = SQLExecDirectA(stmt,
+            const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                "SELECT AccountId FROM dbo.Accounts WHERE Username = ?")),
+            SQL_NTS);
+        if (selectRet != SQL_SUCCESS && selectRet != SQL_SUCCESS_WITH_INFO)
+        {
+            LogDiag("Register: SELECT", SQL_HANDLE_STMT, stmt);
+            return AuthResult::DatabaseError;
         }
 
         const SQLRETURN fetchRet = SQLFetch(stmt);
         if (fetchRet == SQL_SUCCESS || fetchRet == SQL_SUCCESS_WITH_INFO)
         {
-            // Existing account: verify the password.
-            SQLINTEGER accountId = 0;
-            uint8_t storedHash[kHashLength]{};
-            uint8_t storedSalt[kSaltLength]{};
-            SQLLEN indicator = 0;
-
-            SQLGetData(stmt, 1, SQL_C_LONG, &accountId, 0, &indicator);
-            SQLGetData(stmt, 2, SQL_C_BINARY, storedHash, sizeof(storedHash), &indicator);
-            SQLGetData(stmt, 3, SQL_C_BINARY, storedSalt, sizeof(storedSalt), &indicator);
-
-            uint8_t computedHash[kHashLength]{};
-            if (!DeriveHash(password, storedSalt, kSaltLength, computedHash, kHashLength))
-                return false;
-
-            if (!ConstantTimeEquals(computedHash, storedHash, kHashLength))
-            {
-                std::printf("[DB] Login rejected for '%s': wrong password\n", username.c_str());
-                return false;
-            }
-
-            outAccountId = accountId;
-
-            // Best-effort; a failure here shouldn't block the login.
-            SQLHSTMT updateStmt = SQL_NULL_HSTMT;
-            SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &updateStmt);
-            StmtGuard updateGuard(updateStmt);
-            SQLBindParameter(updateStmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accountId, 0, nullptr);
-            SQLExecDirectA(updateStmt,
-                const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
-                    "UPDATE dbo.Accounts SET LastLoginAt = SYSUTCDATETIME() WHERE AccountId = ?")),
-                SQL_NTS);
-
-            return true;
+            std::printf("[DB] Register rejected for '%s': username taken\n", username.c_str());
+            return AuthResult::UsernameTaken;
         }
-
         if (fetchRet != SQL_NO_DATA)
         {
-            LogDiag("AuthenticateOrRegister: fetch", SQL_HANDLE_STMT, stmt);
-            return false;
+            LogDiag("Register: fetch", SQL_HANDLE_STMT, stmt);
+            return AuthResult::DatabaseError;
         }
 
-        // No such account yet: auto-register.
+        // Username is free: create the account.
         uint8_t salt[kSaltLength]{};
         uint8_t hash[kHashLength]{};
         if (!GenerateSalt(salt, kSaltLength) || !DeriveHash(password, salt, kSaltLength, hash, kHashLength))
-            return false;
+            return AuthResult::DatabaseError;
 
         SQLHSTMT insertStmt = SQL_NULL_HSTMT;
         SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &insertStmt);
@@ -237,14 +277,14 @@ namespace Wop
             SQL_NTS);
         if (insertRet != SQL_SUCCESS && insertRet != SQL_SUCCESS_WITH_INFO)
         {
-            LogDiag("AuthenticateOrRegister: INSERT", SQL_HANDLE_STMT, insertStmt);
-            return false;
+            LogDiag("Register: INSERT", SQL_HANDLE_STMT, insertStmt);
+            return AuthResult::DatabaseError;
         }
 
         if (SQLFetch(insertStmt) != SQL_SUCCESS)
         {
-            LogDiag("AuthenticateOrRegister: INSERT fetch id", SQL_HANDLE_STMT, insertStmt);
-            return false;
+            LogDiag("Register: INSERT fetch id", SQL_HANDLE_STMT, insertStmt);
+            return AuthResult::DatabaseError;
         }
 
         SQLINTEGER newAccountId = 0;
@@ -253,7 +293,7 @@ namespace Wop
         outAccountId = newAccountId;
 
         std::printf("[DB] Registered new account '%s' (id=%d)\n", username.c_str(), newAccountId);
-        return true;
+        return AuthResult::Success;
     }
 
     bool Database::LoadProgress(int accountId, ProtoType::Net::Vec3& outPosition, ProtoType::Net::Rotator& outLook, uint8_t& outWeaponType)

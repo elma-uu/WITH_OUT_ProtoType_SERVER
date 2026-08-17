@@ -37,37 +37,43 @@ enum class LoginFailReason : int8_t {
   Banned = 3,
   AlreadyLoggedIn = 4,
   Unknown = 5,
+  AccountNotFound = 6,
+  UsernameTaken = 7,
   MIN = InvalidToken,
-  MAX = Unknown
+  MAX = UsernameTaken
 };
 
-inline const LoginFailReason (&EnumValuesLoginFailReason())[6] {
+inline const LoginFailReason (&EnumValuesLoginFailReason())[8] {
   static const LoginFailReason values[] = {
     LoginFailReason::InvalidToken,
     LoginFailReason::VersionMismatch,
     LoginFailReason::ServerFull,
     LoginFailReason::Banned,
     LoginFailReason::AlreadyLoggedIn,
-    LoginFailReason::Unknown
+    LoginFailReason::Unknown,
+    LoginFailReason::AccountNotFound,
+    LoginFailReason::UsernameTaken
   };
   return values;
 }
 
 inline const char * const *EnumNamesLoginFailReason() {
-  static const char * const names[7] = {
+  static const char * const names[9] = {
     "InvalidToken",
     "VersionMismatch",
     "ServerFull",
     "Banned",
     "AlreadyLoggedIn",
     "Unknown",
+    "AccountNotFound",
+    "UsernameTaken",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameLoginFailReason(LoginFailReason e) {
-  if (::flatbuffers::IsOutRange(e, LoginFailReason::InvalidToken, LoginFailReason::Unknown)) return "";
+  if (::flatbuffers::IsOutRange(e, LoginFailReason::InvalidToken, LoginFailReason::UsernameTaken)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesLoginFailReason()[index];
 }
@@ -78,6 +84,7 @@ struct C2S_LoginT : public ::flatbuffers::NativeTable {
   std::string client_version{};
   std::string username{};
   std::string password{};
+  bool is_register = false;
 };
 
 struct C2S_Login FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -88,7 +95,8 @@ struct C2S_Login FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_AUTH_TOKEN = 4,
     VT_CLIENT_VERSION = 6,
     VT_USERNAME = 8,
-    VT_PASSWORD = 10
+    VT_PASSWORD = 10,
+    VT_IS_REGISTER = 12
   };
   const ::flatbuffers::String *auth_token() const {
     return GetPointer<const ::flatbuffers::String *>(VT_AUTH_TOKEN);
@@ -102,6 +110,9 @@ struct C2S_Login FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *password() const {
     return GetPointer<const ::flatbuffers::String *>(VT_PASSWORD);
   }
+  bool is_register() const {
+    return GetField<uint8_t>(VT_IS_REGISTER, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -113,6 +124,7 @@ struct C2S_Login FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(username()) &&
            VerifyOffset(verifier, VT_PASSWORD) &&
            verifier.VerifyString(password()) &&
+           VerifyField<uint8_t>(verifier, VT_IS_REGISTER, 1) &&
            verifier.EndTable();
   }
   C2S_LoginT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -136,6 +148,9 @@ struct C2S_LoginBuilder {
   void add_password(::flatbuffers::Offset<::flatbuffers::String> password) {
     fbb_.AddOffset(C2S_Login::VT_PASSWORD, password);
   }
+  void add_is_register(bool is_register) {
+    fbb_.AddElement<uint8_t>(C2S_Login::VT_IS_REGISTER, static_cast<uint8_t>(is_register), 0);
+  }
   explicit C2S_LoginBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -152,12 +167,14 @@ inline ::flatbuffers::Offset<C2S_Login> CreateC2S_Login(
     ::flatbuffers::Offset<::flatbuffers::String> auth_token = 0,
     ::flatbuffers::Offset<::flatbuffers::String> client_version = 0,
     ::flatbuffers::Offset<::flatbuffers::String> username = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> password = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> password = 0,
+    bool is_register = false) {
   C2S_LoginBuilder builder_(_fbb);
   builder_.add_password(password);
   builder_.add_username(username);
   builder_.add_client_version(client_version);
   builder_.add_auth_token(auth_token);
+  builder_.add_is_register(is_register);
   return builder_.Finish();
 }
 
@@ -171,7 +188,8 @@ inline ::flatbuffers::Offset<C2S_Login> CreateC2S_LoginDirect(
     const char *auth_token = nullptr,
     const char *client_version = nullptr,
     const char *username = nullptr,
-    const char *password = nullptr) {
+    const char *password = nullptr,
+    bool is_register = false) {
   auto auth_token__ = auth_token ? _fbb.CreateString(auth_token) : 0;
   auto client_version__ = client_version ? _fbb.CreateString(client_version) : 0;
   auto username__ = username ? _fbb.CreateString(username) : 0;
@@ -181,7 +199,8 @@ inline ::flatbuffers::Offset<C2S_Login> CreateC2S_LoginDirect(
       auth_token__,
       client_version__,
       username__,
-      password__);
+      password__,
+      is_register);
 }
 
 ::flatbuffers::Offset<C2S_Login> CreateC2S_Login(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_LoginT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -388,6 +407,7 @@ inline void C2S_Login::UnPackTo(C2S_LoginT *_o, const ::flatbuffers::resolver_fu
   { auto _e = client_version(); if (_e) _o->client_version = _e->str(); }
   { auto _e = username(); if (_e) _o->username = _e->str(); }
   { auto _e = password(); if (_e) _o->password = _e->str(); }
+  { auto _e = is_register(); _o->is_register = _e; }
 }
 
 inline ::flatbuffers::Offset<C2S_Login> CreateC2S_Login(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_LoginT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -402,12 +422,14 @@ inline ::flatbuffers::Offset<C2S_Login> C2S_Login::Pack(::flatbuffers::FlatBuffe
   auto _client_version = _o->client_version.empty() ? 0 : _fbb.CreateString(_o->client_version);
   auto _username = _o->username.empty() ? 0 : _fbb.CreateString(_o->username);
   auto _password = _o->password.empty() ? 0 : _fbb.CreateString(_o->password);
+  auto _is_register = _o->is_register;
   return ProtoType::Net::CreateC2S_Login(
       _fbb,
       _auth_token,
       _client_version,
       _username,
-      _password);
+      _password,
+      _is_register);
 }
 
 inline S2C_LoginFailT *S2C_LoginFail::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {

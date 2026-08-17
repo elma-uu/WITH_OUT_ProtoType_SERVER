@@ -45,3 +45,16 @@ table S2C_SendPlayerInfo {
 table S2C_PlayerLeft {
   player_id: uint32;
 }
+
+// Sent when entering/leaving a Single map (see
+// UProtoNetClientSubsystem::SetMultiplayerVisualsEnabled) -- the session
+// stays connected (still logged in, still saving progress) but stops
+// sending C2S_MoveInput/etc, so without this, other clients would just see
+// this player's last known position freeze instead of properly leaving.
+// visible=false makes the server broadcast S2C_PlayerLeft on this session's
+// behalf (without actually closing it); visible=true needs no reply -- the
+// next C2S_MoveInput this session sends once back in a Multi map naturally
+// respawns it on everyone else's screen the same way any new player does.
+table C2S_SetVisible {
+  visible: bool;
+}

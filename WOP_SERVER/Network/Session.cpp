@@ -75,6 +75,11 @@ namespace
             case Payload::C2S_SaveInventory:
                 return "save inventory";
 
+            case Payload::C2S_SetVisible:
+                if (const auto* req = packet->payload_as_C2S_SetVisible())
+                    return req->visible() ? "become visible" : "become invisible";
+                return "set visible";
+
             default:
                 return EnumNamePayload(packet->payload_type());
         }
@@ -474,6 +479,32 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_SetVisible:
+            {
+                const auto* req = packet->payload_as_C2S_SetVisible();
+                if (!req)
+                    break;
+
+                // visible=true needs no reply here -- see this message's
+                // schema comment: the next C2S_MoveInput this session sends
+                // (resumed once the client's back in a Multi map) naturally
+                // respawns it on everyone else's screen. visible=false is
+                // the only direction that needs us to do anything: broadcast
+                // the exact same "player left" message a real disconnect
+                // would, on this still-connected session's behalf, so other
+                // clients despawn it instead of freezing it in place.
+                if (!req->visible())
+                {
+                    flatbuffers::FlatBufferBuilder fbb;
+                    auto left = CreateS2C_PlayerLeft(fbb, id_);
+                    auto reply = CreatePacket(fbb, Payload::S2C_PlayerLeft, left.Union());
+                    FinishSizePrefixedPacketBuffer(fbb, reply);
+                    server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                       static_cast<uint32_t>(fbb.GetSize()));
+                }
+                break;
+            }
+
             default:
                 break;
         }
@@ -579,15 +610,16 @@ namespace Wop
 
             // Login/MoveInput already get a proper reply (S2C_LoginSuccess +
             // roster/join broadcast, or S2C_MoveState broadcast) above;
-            // SaveInventory intentionally gets no reply at all (see its case
-            // above). Self-echoing any of their raw C2S_* packets back would
-            // just be stream noise that could be mistaken for a real S2C_*
-            // message.
+            // SaveInventory/SetVisible intentionally get no reply at all
+            // (see their cases above). Self-echoing any of their raw C2S_*
+            // packets back would just be stream noise that could be mistaken
+            // for a real S2C_* message.
             const auto type = packet->payload_type();
             const bool skipSelfEcho =
                 (type == ProtoType::Net::Payload::C2S_Login ||
                  type == ProtoType::Net::Payload::C2S_MoveInput ||
-                 type == ProtoType::Net::Payload::C2S_SaveInventory);
+                 type == ProtoType::Net::Payload::C2S_SaveInventory ||
+                 type == ProtoType::Net::Payload::C2S_SetVisible);
             if (!skipSelfEcho)
                 EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

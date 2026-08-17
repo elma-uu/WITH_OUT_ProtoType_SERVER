@@ -26,6 +26,7 @@ union Payload {
   C2S_InteractRequest,
   S2C_InteractResult,
   C2S_SaveInventory,
+  C2S_SetVisible,
 }
 
 table Packet {

@@ -34,6 +34,10 @@ struct S2C_PlayerLeft;
 struct S2C_PlayerLeftBuilder;
 struct S2C_PlayerLeftT;
 
+struct C2S_SetVisible;
+struct C2S_SetVisibleBuilder;
+struct C2S_SetVisibleT;
+
 enum class EquipSlot : int8_t {
   Head = 0,
   Chest = 1,
@@ -535,6 +539,65 @@ struct S2C_PlayerLeft::Traits {
 
 ::flatbuffers::Offset<S2C_PlayerLeft> CreateS2C_PlayerLeft(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerLeftT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct C2S_SetVisibleT : public ::flatbuffers::NativeTable {
+  typedef C2S_SetVisible TableType;
+  bool visible = false;
+};
+
+struct C2S_SetVisible FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_SetVisibleT NativeTableType;
+  typedef C2S_SetVisibleBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_VISIBLE = 4
+  };
+  bool visible() const {
+    return GetField<uint8_t>(VT_VISIBLE, 0) != 0;
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_VISIBLE, 1) &&
+           verifier.EndTable();
+  }
+  C2S_SetVisibleT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_SetVisibleT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_SetVisible> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SetVisibleT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_SetVisibleBuilder {
+  typedef C2S_SetVisible Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_visible(bool visible) {
+    fbb_.AddElement<uint8_t>(C2S_SetVisible::VT_VISIBLE, static_cast<uint8_t>(visible), 0);
+  }
+  explicit C2S_SetVisibleBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_SetVisible> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_SetVisible>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_SetVisible> CreateC2S_SetVisible(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    bool visible = false) {
+  C2S_SetVisibleBuilder builder_(_fbb);
+  builder_.add_visible(visible);
+  return builder_.Finish();
+}
+
+struct C2S_SetVisible::Traits {
+  using type = C2S_SetVisible;
+  static auto constexpr Create = CreateC2S_SetVisible;
+};
+
+::flatbuffers::Offset<C2S_SetVisible> CreateC2S_SetVisible(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SetVisibleT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline EquippedVisualT *EquippedVisual::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<EquippedVisualT>();
   UnPackTo(_o.get(), _resolver);
@@ -725,6 +788,32 @@ inline ::flatbuffers::Offset<S2C_PlayerLeft> S2C_PlayerLeft::Pack(::flatbuffers:
   return ProtoType::Net::CreateS2C_PlayerLeft(
       _fbb,
       _player_id);
+}
+
+inline C2S_SetVisibleT *C2S_SetVisible::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_SetVisibleT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_SetVisible::UnPackTo(C2S_SetVisibleT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = visible(); _o->visible = _e; }
+}
+
+inline ::flatbuffers::Offset<C2S_SetVisible> CreateC2S_SetVisible(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SetVisibleT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_SetVisible::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_SetVisible> C2S_SetVisible::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SetVisibleT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_SetVisibleT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _visible = _o->visible;
+  return ProtoType::Net::CreateC2S_SetVisible(
+      _fbb,
+      _visible);
 }
 
 }  // namespace Net

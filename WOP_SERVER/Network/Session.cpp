@@ -406,9 +406,9 @@ namespace Wop
     {
         using namespace ProtoType::Net;
 
-        constexpr float kHitRadius = 150.0f;    // stand-in for a character capsule
-        constexpr float kMaxRange = 10000.0f;   // matches the client's own trace range
-        constexpr float kDamagePerHit = 20.0f;  // placeholder; real per-weapon damage lives client-side
+        constexpr float kHitRadius = 150.0f;
+        constexpr float kMaxRange = 10000.0f;
+        constexpr float kDamagePerHit = 20.0f;
 
         const float dirLenSq = direction.x() * direction.x() + direction.y() * direction.y() + direction.z() * direction.z();
         if (dirLenSq < 0.0001f)
@@ -431,8 +431,6 @@ namespace Wop
             const float toY = pos.y() - origin.y();
             const float toZ = pos.z() - origin.z();
 
-            // Distance along the ray to the closest approach; behind the
-            // attacker or past max range doesn't count as a hit.
             const float t = toX * dx + toY * dy + toZ * dz;
             if (t < 0.0f || t > kMaxRange)
                 continue;
@@ -462,8 +460,6 @@ namespace Wop
         auto reply = CreatePacket(fbb, Payload::S2C_AttackResult, result.Union());
         FinishSizePrefixedPacketBuffer(fbb, reply);
 
-        // Unlike S2C_AttackBroadcast (FX-only, everyone else), the result
-        // matters most to the attacker -- send to self too, not just others.
         EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()), static_cast<uint32_t>(fbb.GetSize()));
         server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()), static_cast<uint32_t>(fbb.GetSize()));
     }

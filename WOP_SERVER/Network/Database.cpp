@@ -8,14 +8,11 @@
 
 namespace
 {
-    // dbo.Accounts.PasswordHash/PasswordSalt column widths (see the DB
-    // schema created alongside this feature); PBKDF2-HMAC-SHA256 output.
+
     constexpr ULONG kHashLength = 32;
     constexpr ULONG kSaltLength = 16;
     constexpr ULONG kHashIterations = 100000;
 
-    // Frees a SQLHSTMT on scope exit, so early-return error paths below
-    // don't need to remember to clean up.
     class StmtGuard
     {
     public:

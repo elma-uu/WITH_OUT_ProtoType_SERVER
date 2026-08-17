@@ -15,6 +15,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
 
 #include "attack.h"
 #include "interact.h"
+#include "inventory.h"
 #include "item.h"
 #include "login.h"
 #include "movement.h"
@@ -45,11 +46,12 @@ enum class Payload : uint8_t {
   S2C_ItemUseBroadcast = 14,
   C2S_InteractRequest = 15,
   S2C_InteractResult = 16,
+  C2S_SaveInventory = 17,
   MIN = NONE,
-  MAX = S2C_InteractResult
+  MAX = C2S_SaveInventory
 };
 
-inline const Payload (&EnumValuesPayload())[17] {
+inline const Payload (&EnumValuesPayload())[18] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -67,13 +69,14 @@ inline const Payload (&EnumValuesPayload())[17] {
     Payload::S2C_ItemUseResult,
     Payload::S2C_ItemUseBroadcast,
     Payload::C2S_InteractRequest,
-    Payload::S2C_InteractResult
+    Payload::S2C_InteractResult,
+    Payload::C2S_SaveInventory
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[18] = {
+  static const char * const names[19] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -91,13 +94,14 @@ inline const char * const *EnumNamesPayload() {
     "S2C_ItemUseBroadcast",
     "C2S_InteractRequest",
     "S2C_InteractResult",
+    "C2S_SaveInventory",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_InteractResult)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::C2S_SaveInventory)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -170,6 +174,10 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_InteractResult> {
   static const Payload enum_value = Payload::S2C_InteractResult;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_SaveInventory> {
+  static const Payload enum_value = Payload::C2S_SaveInventory;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -236,6 +244,10 @@ template<> struct PayloadUnionTraits<ProtoType::Net::C2S_InteractRequestT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_InteractResultT> {
   static const Payload enum_value = Payload::S2C_InteractResult;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_SaveInventoryT> {
+  static const Payload enum_value = Payload::C2S_SaveInventory;
 };
 
 struct PayloadUnion {
@@ -396,6 +408,14 @@ struct PayloadUnion {
     return type == Payload::S2C_InteractResult ?
       reinterpret_cast<const ProtoType::Net::S2C_InteractResultT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_SaveInventoryT *AsC2S_SaveInventory() {
+    return type == Payload::C2S_SaveInventory ?
+      reinterpret_cast<ProtoType::Net::C2S_SaveInventoryT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_SaveInventoryT *AsC2S_SaveInventory() const {
+    return type == Payload::C2S_SaveInventory ?
+      reinterpret_cast<const ProtoType::Net::C2S_SaveInventoryT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -470,6 +490,9 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::S2C_InteractResult *payload_as_S2C_InteractResult() const {
     return payload_type() == ProtoType::Net::Payload::S2C_InteractResult ? static_cast<const ProtoType::Net::S2C_InteractResult *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_SaveInventory *payload_as_C2S_SaveInventory() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_SaveInventory ? static_cast<const ProtoType::Net::C2S_SaveInventory *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -546,6 +569,10 @@ template<> inline const ProtoType::Net::C2S_InteractRequest *Packet::payload_as<
 
 template<> inline const ProtoType::Net::S2C_InteractResult *Packet::payload_as<ProtoType::Net::S2C_InteractResult>() const {
   return payload_as_S2C_InteractResult();
+}
+
+template<> inline const ProtoType::Net::C2S_SaveInventory *Packet::payload_as<ProtoType::Net::C2S_SaveInventory>() const {
+  return payload_as_C2S_SaveInventory();
 }
 
 struct PacketBuilder {
@@ -685,6 +712,10 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_InteractResult *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_SaveInventory: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveInventory *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -769,6 +800,10 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_InteractResult *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_SaveInventory: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveInventory *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -840,6 +875,10 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_InteractResultT *>(value);
       return CreateS2C_InteractResult(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_SaveInventory: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveInventoryT *>(value);
+      return CreateC2S_SaveInventory(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -908,6 +947,10 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_InteractResult: {
       value = new ProtoType::Net::S2C_InteractResultT(*reinterpret_cast<ProtoType::Net::S2C_InteractResultT *>(u.value));
+      break;
+    }
+    case Payload::C2S_SaveInventory: {
+      value = new ProtoType::Net::C2S_SaveInventoryT(*reinterpret_cast<ProtoType::Net::C2S_SaveInventoryT *>(u.value));
       break;
     }
     default:
@@ -994,6 +1037,11 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_InteractResult: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_InteractResultT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_SaveInventory: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_SaveInventoryT *>(value);
       delete ptr;
       break;
     }

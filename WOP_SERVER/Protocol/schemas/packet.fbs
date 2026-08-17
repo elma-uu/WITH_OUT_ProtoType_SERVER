@@ -4,6 +4,7 @@ include "movement.fbs";
 include "attack.fbs";
 include "item.fbs";
 include "interact.fbs";
+include "inventory.fbs";
 
 namespace ProtoType.Net;
 
@@ -24,6 +25,7 @@ union Payload {
   S2C_ItemUseBroadcast,
   C2S_InteractRequest,
   S2C_InteractResult,
+  C2S_SaveInventory,
 }
 
 table Packet {

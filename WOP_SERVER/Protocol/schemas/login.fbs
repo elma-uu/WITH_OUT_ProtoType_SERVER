@@ -1,4 +1,5 @@
 include "common.fbs";
+include "inventory.fbs";
 
 namespace ProtoType.Net;
 
@@ -42,4 +43,7 @@ table S2C_LoginSuccess {
   look: Rotator;
   weapon_type: ubyte;
   has_saved_progress: bool;
+  // Restored grid inventory contents, same lifecycle as has_saved_progress
+  // (empty if the account never saved one).
+  inventory: [InventoryItemEntry];
 }

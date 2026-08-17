@@ -1,0 +1,21 @@
+namespace ProtoType.Net;
+
+// One placed item in the grid inventory. item_id is the item Data Asset's
+// own object name (e.g. "DA_Item_AK47") -- not UItemDataBase::ItemId, which
+// isn't guaranteed to actually be filled in by content authors; the asset
+// name always exists and is unique.
+table InventoryItemEntry {
+  item_id: string;
+  grid_x: short = 0;
+  grid_y: short = 0;
+  rotated: bool = false;
+  stack_count: short = 1;
+}
+
+// Sent by the client whenever its inventory grid changes (add/remove/move/
+// rotate/split/merge) -- always the FULL current contents, not a diff, so
+// the server's stored copy can never drift out of sync from a dropped
+// packet. No reply; the client is the source of truth while connected.
+table C2S_SaveInventory {
+  items: [InventoryItemEntry];
+}

@@ -5,6 +5,7 @@
 #include <sqlext.h>
 #include <mutex>
 #include <string>
+#include <vector>
 
 namespace Wop
 {
@@ -16,6 +17,18 @@ namespace Wop
         WrongPassword,    // Authenticate(): account exists, password didn't match
         UsernameTaken,    // Register(): an account with this username already exists
         DatabaseError,    // not connected, or an ODBC call failed
+    };
+
+    // One placed item in the grid inventory. itemId is the item Data Asset's
+    // own object name (e.g. "DA_Item_AK47"), not a numeric id -- see the
+    // client's inventory.fbs comment for why.
+    struct InventoryItemRecord
+    {
+        std::string itemId;
+        int16_t gridX = 0;
+        int16_t gridY = 0;
+        bool rotated = false;
+        int16_t stackCount = 1;
     };
 
     class Database
@@ -42,6 +55,16 @@ namespace Wop
 
         // Upsert.
         bool SaveProgress(int accountId, const ProtoType::Net::Vec3& position, const ProtoType::Net::Rotator& look, uint8_t weaponType);
+
+        /*-------------------
+         인벤토리 (그리드)
+        -------------------*/
+        bool LoadInventory(int accountId, std::vector<InventoryItemRecord>& outItems);
+
+        // Full replace: deletes this account's existing rows and inserts
+        // outItems fresh, inside one transaction -- the client always sends
+        // its complete current grid (see C2S_SaveInventory), never a diff.
+        bool SaveInventory(int accountId, const std::vector<InventoryItemRecord>& items);
 
     private:
         Database() = default;

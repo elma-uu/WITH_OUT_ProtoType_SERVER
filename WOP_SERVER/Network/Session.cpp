@@ -72,6 +72,9 @@ namespace
                 }
                 return "interact";
 
+            case Payload::C2S_SaveInventory:
+                return "save inventory";
+
             default:
                 return EnumNamePayload(packet->payload_type());
         }
@@ -210,6 +213,7 @@ namespace Wop
                 Vec3 savedPosition{};
                 Rotator savedLook{};
                 uint8_t savedWeaponType = 0;
+                std::vector<InventoryItemRecord> savedInventory;
 
                 if (req && req->username() && req->username()->size() > 0
                     && req->password() && Database::Get().IsConnected())
@@ -260,6 +264,7 @@ namespace Wop
 
                     accountId_ = accountId;
                     hasSavedProgress = Database::Get().LoadProgress(accountId, savedPosition, savedLook, savedWeaponType);
+                    Database::Get().LoadInventory(accountId, savedInventory);
                 }
 
                 if (hasSavedProgress)
@@ -279,10 +284,20 @@ namespace Wop
                 }
 
                 // 1) Tell this client its own player id (+ restored
-                //    position/weapon, if this account had saved progress).
+                //    position/weapon/inventory, if this account had saved progress).
                 {
                     flatbuffers::FlatBufferBuilder fbb;
-                    auto success = CreateS2C_LoginSuccess(fbb, id_, &position_, &look_, weaponType_, hasSavedProgress);
+                    std::vector<flatbuffers::Offset<InventoryItemEntry>> inventoryOffsets;
+                    inventoryOffsets.reserve(savedInventory.size());
+                    for (const auto& item : savedInventory)
+                    {
+                        auto itemIdOffset = fbb.CreateString(item.itemId);
+                        inventoryOffsets.push_back(CreateInventoryItemEntry(
+                            fbb, itemIdOffset, item.gridX, item.gridY, item.rotated, item.stackCount));
+                    }
+                    auto inventoryVector = fbb.CreateVector(inventoryOffsets);
+
+                    auto success = CreateS2C_LoginSuccess(fbb, id_, &position_, &look_, weaponType_, hasSavedProgress, inventoryVector);
                     auto reply = CreatePacket(fbb, Payload::S2C_LoginSuccess, success.Union());
                     FinishSizePrefixedPacketBuffer(fbb, reply);
                     EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
@@ -426,6 +441,39 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_SaveInventory:
+            {
+                // No reply, no broadcast -- this is purely "persist my
+                // current grid", not something other players need to know
+                // about (unlike position/weapon/attack). Silently ignored
+                // for anonymous (non-account) sessions, same as MoveInput's
+                // progress save.
+                if (accountId_ < 0)
+                    break;
+
+                const auto* req = packet->payload_as_C2S_SaveInventory();
+                if (!req || !req->items())
+                    break;
+
+                std::vector<InventoryItemRecord> items;
+                items.reserve(req->items()->size());
+                for (const auto* entry : *req->items())
+                {
+                    if (!entry || !entry->item_id())
+                        continue;
+                    InventoryItemRecord record;
+                    record.itemId = entry->item_id()->str();
+                    record.gridX = entry->grid_x();
+                    record.gridY = entry->grid_y();
+                    record.rotated = entry->rotated();
+                    record.stackCount = entry->stack_count();
+                    items.push_back(std::move(record));
+                }
+
+                Database::Get().SaveInventory(accountId_, items);
+                break;
+            }
+
             default:
                 break;
         }
@@ -530,12 +578,16 @@ namespace Wop
             BroadcastGameplayState(packet);
 
             // Login/MoveInput already get a proper reply (S2C_LoginSuccess +
-            // roster/join broadcast, or S2C_MoveState broadcast) above; also
-            // self-echoing the raw C2S_* packet would just be stream noise
-            // that could be mistaken for a real S2C_* message.
+            // roster/join broadcast, or S2C_MoveState broadcast) above;
+            // SaveInventory intentionally gets no reply at all (see its case
+            // above). Self-echoing any of their raw C2S_* packets back would
+            // just be stream noise that could be mistaken for a real S2C_*
+            // message.
             const auto type = packet->payload_type();
             const bool skipSelfEcho =
-                (type == ProtoType::Net::Payload::C2S_Login || type == ProtoType::Net::Payload::C2S_MoveInput);
+                (type == ProtoType::Net::Payload::C2S_Login ||
+                 type == ProtoType::Net::Payload::C2S_MoveInput ||
+                 type == ProtoType::Net::Payload::C2S_SaveInventory);
             if (!skipSelfEcho)
                 EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

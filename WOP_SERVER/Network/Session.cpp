@@ -271,7 +271,10 @@ namespace Wop
                 else
                 {
                     // Cheap deterministic spawn point so players don't stack.
-                    position_ = Vec3(static_cast<float>(id_ % 8) * 200.0f, 0.0f, 100.0f);
+                    // Grid instead of a single row now that maxPlayers can be
+                    // well above 8 (see main.cpp) -- a plain "id_ % 8" would
+                    // start reusing X positions past the 9th player.
+                    position_ = Vec3(static_cast<float>(id_ % 8) * 200.0f, static_cast<float>((id_ / 8) % 8) * 200.0f, 100.0f);
                     look_ = Rotator(0.0f, 0.0f, 0.0f);
                 }
 

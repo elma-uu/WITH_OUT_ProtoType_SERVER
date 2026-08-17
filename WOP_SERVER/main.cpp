@@ -6,7 +6,10 @@ int main()
 {
     constexpr uint16_t kPort = 7777;
     constexpr uint32_t kWorkerThreadCount = 4;
-    constexpr uint32_t kMaxPlayers = 2;
+    // Demo day: raised from 2 so the room isn't capped. sessions_ is a plain
+    // unordered_map (see EchoServer.h) so this isn't a hardcoded-size issue,
+    // just a policy cap -- pick any number the network/hardware can take.
+    constexpr uint32_t kMaxPlayers = 32;
 
     // Best-effort: keep running without persistence (deterministic spawn,
     // no accounts) rather than refuse to start the game server over a

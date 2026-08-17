@@ -15,8 +15,9 @@ namespace Wop
         /*-------------------
          생성/시작/정지
         -------------------*/
-        // maxPlayers caps concurrent sessions (this is a 2-player game); a
-        // connection beyond that gets S2C_LoginFail{ServerFull} and is closed.
+        // maxPlayers caps concurrent sessions; a connection beyond that gets
+        // S2C_LoginFail{ServerFull} and is closed. See main.cpp for the
+        // actual value in use.
         EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers = 2);
         ~EchoServer();
 

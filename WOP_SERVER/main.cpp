@@ -1,11 +1,16 @@
 #include "Network/EchoServer.h"
 #include "Network/Database.h"
 #include <cstdio>
+#include <thread>
 
 int main()
 {
     constexpr uint16_t kPort = 7777;
-    constexpr uint32_t kWorkerThreadCount = 4;
+    // hardware_concurrency() can return 0 if it can't be determined (rare,
+    // but happens in some sandboxed/virtualized environments) -- fall back
+    // to the old fixed value of 4 in that case.
+    const uint32_t kWorkerThreadCount =
+        std::thread::hardware_concurrency() > 0 ? std::thread::hardware_concurrency() : 4;
     // Demo day: raised from 2 so the room isn't capped. sessions_ is a plain
     // unordered_map (see EchoServer.h) so this isn't a hardcoded-size issue,
     // just a policy cap -- pick any number the network/hardware can take.

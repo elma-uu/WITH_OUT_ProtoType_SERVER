@@ -32,15 +32,11 @@ namespace Wop
         uint32_t ReadOffset() const { return readPos_; }
         uint32_t WriteOffset() const { return writePos_; }
 
-        // Contiguous free space available at the tail, without compacting.
         uint32_t TailFreeSize() const { return capacity_ - writePos_; }
 
         /*-------------------
          쓰기/읽기
         -------------------*/
-        // Makes sure at least `needed` contiguous bytes are free at the tail,
-        // compacting first if the total free space allows it.
-        // Returns false if `needed` can never fit (bigger than capacity).
         bool ReserveWritable(uint32_t needed)
         {
             if (needed > capacity_)
@@ -52,20 +48,16 @@ namespace Wop
             return TailFreeSize() >= needed;
         }
 
-        // Call after bytes have actually been written into WritePos().
         void OnWrite(uint32_t len)
         {
             writePos_ += len;
         }
 
-        // Call after bytes have been consumed from ReadPos().
         void OnRead(uint32_t len)
         {
             readPos_ += len;
             if (readPos_ == writePos_)
             {
-                // Fully drained: reset to the front instead of waiting for a
-                // compaction to be forced later.
                 readPos_ = 0;
                 writePos_ = 0;
             }

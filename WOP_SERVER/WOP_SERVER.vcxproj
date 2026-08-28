@@ -144,6 +144,7 @@
     <ClCompile Include="Network\Database.cpp" />
     <ClCompile Include="Network\EnemyAI.cpp" />
     <ClCompile Include="Network\LevelObstacles.cpp" />
+    <ClCompile Include="Network\HitDetection.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Network\NetCommon.h" />
@@ -154,6 +155,7 @@
     <ClInclude Include="Network\Database.h" />
     <ClInclude Include="Network\EnemyAI.h" />
     <ClInclude Include="Network\LevelObstacles.h" />
+    <ClInclude Include="Network\HitDetection.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

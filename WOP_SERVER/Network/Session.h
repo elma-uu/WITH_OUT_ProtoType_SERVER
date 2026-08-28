@@ -80,9 +80,12 @@ namespace Wop
         void BroadcastGameplayState(const ProtoType::Net::Packet* packet);
 
         // Approximate hit resolution for C2S_AttackRequest: the server has
-        // no level geometry, so this finds the closest other tracked player
-        // position to the attack ray (within a capsule-sized radius) instead
-        // of a real raycast, and broadcasts the result as S2C_AttackResult.
+        // no level geometry (or skeleton/mesh data), so this tests the
+        // attack ray against each other tracked player's approximate
+        // hitbox -- an upright capsule at their last-known position, see
+        // HitDetection.h -- instead of a real raycast against real
+        // collision, and broadcasts the nearest hit as S2C_AttackResult
+        // (including which body region it landed in, via HitBone).
         void ResolveAndBroadcastHit(const ProtoType::Net::Vec3& origin, const ProtoType::Net::Vec3& direction, uint8_t weaponSlot);
 
         void Close(const char* reason);

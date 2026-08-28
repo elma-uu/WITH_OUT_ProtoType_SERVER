@@ -1,6 +1,7 @@
 ﻿#include "Session.h"
 #include "EchoServer.h"
 #include "EnemyAI.h"
+#include "HitDetection.h"
 #include "RioApi.h"
 #include "Database.h"
 #include "packet.h"
@@ -699,7 +700,6 @@ namespace Wop
     {
         using namespace ProtoType::Net;
 
-        constexpr float kHitRadius = 150.0f;
         constexpr float kMaxRange = 10000.0f;
         constexpr float kDamagePerHit = 20.0f;
 
@@ -708,48 +708,35 @@ namespace Wop
             return;
 
         const float dirLen = std::sqrt(dirLenSq);
-        const float dx = direction.x() / dirLen;
-        const float dy = direction.y() / dirLen;
-        const float dz = direction.z() / dirLen;
+        const Vec3 dir(direction.x() / dirLen, direction.y() / dirLen, direction.z() / dirLen);
 
         bool found = false;
         float bestT = kMaxRange;
         uint32_t bestTargetId = 0;
         Vec3 bestPosition(0.0f, 0.0f, 0.0f);
+        HitBone bestBone = HitBone::None;
 
         for (const auto& other : server_.SnapshotOtherSessions(id_))
         {
-            const Vec3 pos = other->GetPosition();
-            const float toX = pos.x() - origin.x();
-            const float toY = pos.y() - origin.y();
-            const float toZ = pos.z() - origin.z();
+            // Real hitbox test (capsule, not a flat sphere blob) -- see
+            // HitDetection.h for what this approximates and why.
+            const FHitResult hitResult = TestRayAgainstPlayerCapsule(
+                origin, dir, other->GetPosition(), other->GetLook().yaw(), kMaxRange);
 
-            const float t = toX * dx + toY * dy + toZ * dz;
-            if (t < 0.0f || t > kMaxRange)
-                continue;
-
-            const float closestX = origin.x() + dx * t;
-            const float closestY = origin.y() + dy * t;
-            const float closestZ = origin.z() + dz * t;
-
-            const float distX = pos.x() - closestX;
-            const float distY = pos.y() - closestY;
-            const float distZ = pos.z() - closestZ;
-            const float distSq = distX * distX + distY * distY + distZ * distZ;
-
-            if (distSq <= kHitRadius * kHitRadius && t < bestT)
+            if (hitResult.hit && hitResult.rayT < bestT)
             {
                 found = true;
-                bestT = t;
+                bestT = hitResult.rayT;
                 bestTargetId = other->GetId();
-                bestPosition = pos;
+                bestPosition = hitResult.hitPosition;
+                bestBone = hitResult.hitBone;
             }
         }
 
         flatbuffers::FlatBufferBuilder fbb;
         auto result = CreateS2C_AttackResult(fbb, /*server_tick*/ 0, id_, bestTargetId,
             /*weapon_id*/ static_cast<uint32_t>(weaponSlot), found, found ? &bestPosition : nullptr,
-            HitBone::None, found ? kDamagePerHit : 0.0f);
+            bestBone, found ? kDamagePerHit : 0.0f);
         auto reply = CreatePacket(fbb, Payload::S2C_AttackResult, result.Union());
         FinishSizePrefixedPacketBuffer(fbb, reply);
 

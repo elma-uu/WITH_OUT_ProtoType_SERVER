@@ -54,6 +54,29 @@ namespace Wop
         const std::vector<InventoryItemRecord>& ClaimContainerLoot(
             uint32_t containerId, std::vector<InventoryItemRecord> proposed);
 
+        /*-------------------
+         적(좀비) AI 소유권
+        -------------------*/
+        // Enemies are level content, not owned by any one session the way a
+        // player or companion is -- but only ONE client's local behavior
+        // tree/pathing should actually be "the" simulation for a given
+        // enemy, or every client would see it doing something different.
+        // The first client to ask wins; see Session.cpp's
+        // C2S_EnemyClaimRequest case. Returns true if sessionId now owns
+        // enemyId (either it just won the claim, or it already owned it).
+        bool ClaimEnemy(uint32_t enemyId, uint32_t sessionId);
+
+        // Releases every enemy sessionId owned (called from
+        // UnregisterSession on disconnect). Returns the released enemy ids
+        // so the caller can broadcast S2C_EnemyOwnerLeft for each -- the
+        // enemy itself keeps existing, it just needs a new driver.
+        std::vector<uint32_t> ReleaseEnemiesOwnedBy(uint32_t sessionId);
+
+        // The still-connected session currently driving enemyId's AI, for
+        // relaying C2S_EnemyDamage to it (see that message's schema
+        // comment). nullptr if unclaimed or the owner already disconnected.
+        std::shared_ptr<Session> FindEnemyOwnerSession(uint32_t enemyId);
+
     private:
         static constexpr ULONG kCompletionQueueSize = 8192;
 
@@ -106,5 +129,8 @@ namespace Wop
 
         std::mutex containerLootLock_;
         std::unordered_map<uint32_t, std::vector<InventoryItemRecord>> containerLoot_;
+
+        std::mutex enemyOwnerLock_;
+        std::unordered_map<uint32_t, uint32_t> enemyOwners_; // enemy_id -> owning session id
     };
 }

@@ -15,6 +15,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
 
 #include "attack.h"
 #include "companion.h"
+#include "enemy.h"
 #include "interact.h"
 #include "inventory.h"
 #include "item.h"
@@ -53,11 +54,18 @@ enum class Payload : uint8_t {
   S2C_ContainerLootState = 20,
   C2S_CompanionMoveInput = 21,
   S2C_CompanionMoveState = 22,
+  C2S_EnemyClaimRequest = 23,
+  S2C_EnemyClaimResult = 24,
+  C2S_EnemyState = 25,
+  S2C_EnemyState = 26,
+  S2C_EnemyOwnerLeft = 27,
+  C2S_EnemyDamage = 28,
+  S2C_EnemyDamage = 29,
   MIN = NONE,
-  MAX = S2C_CompanionMoveState
+  MAX = S2C_EnemyDamage
 };
 
-inline const Payload (&EnumValuesPayload())[23] {
+inline const Payload (&EnumValuesPayload())[30] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -81,13 +89,20 @@ inline const Payload (&EnumValuesPayload())[23] {
     Payload::C2S_ContainerLootRoll,
     Payload::S2C_ContainerLootState,
     Payload::C2S_CompanionMoveInput,
-    Payload::S2C_CompanionMoveState
+    Payload::S2C_CompanionMoveState,
+    Payload::C2S_EnemyClaimRequest,
+    Payload::S2C_EnemyClaimResult,
+    Payload::C2S_EnemyState,
+    Payload::S2C_EnemyState,
+    Payload::S2C_EnemyOwnerLeft,
+    Payload::C2S_EnemyDamage,
+    Payload::S2C_EnemyDamage
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[24] = {
+  static const char * const names[31] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -111,13 +126,20 @@ inline const char * const *EnumNamesPayload() {
     "S2C_ContainerLootState",
     "C2S_CompanionMoveInput",
     "S2C_CompanionMoveState",
+    "C2S_EnemyClaimRequest",
+    "S2C_EnemyClaimResult",
+    "C2S_EnemyState",
+    "S2C_EnemyState",
+    "S2C_EnemyOwnerLeft",
+    "C2S_EnemyDamage",
+    "S2C_EnemyDamage",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_CompanionMoveState)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_EnemyDamage)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -214,6 +236,34 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_CompanionMoveState> {
   static const Payload enum_value = Payload::S2C_CompanionMoveState;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_EnemyClaimRequest> {
+  static const Payload enum_value = Payload::C2S_EnemyClaimRequest;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_EnemyClaimResult> {
+  static const Payload enum_value = Payload::S2C_EnemyClaimResult;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::C2S_EnemyState> {
+  static const Payload enum_value = Payload::C2S_EnemyState;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_EnemyState> {
+  static const Payload enum_value = Payload::S2C_EnemyState;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_EnemyOwnerLeft> {
+  static const Payload enum_value = Payload::S2C_EnemyOwnerLeft;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::C2S_EnemyDamage> {
+  static const Payload enum_value = Payload::C2S_EnemyDamage;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_EnemyDamage> {
+  static const Payload enum_value = Payload::S2C_EnemyDamage;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -304,6 +354,34 @@ template<> struct PayloadUnionTraits<ProtoType::Net::C2S_CompanionMoveInputT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_CompanionMoveStateT> {
   static const Payload enum_value = Payload::S2C_CompanionMoveState;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_EnemyClaimRequestT> {
+  static const Payload enum_value = Payload::C2S_EnemyClaimRequest;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_EnemyClaimResultT> {
+  static const Payload enum_value = Payload::S2C_EnemyClaimResult;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_EnemyStateT> {
+  static const Payload enum_value = Payload::C2S_EnemyState;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_EnemyStateT> {
+  static const Payload enum_value = Payload::S2C_EnemyState;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_EnemyOwnerLeftT> {
+  static const Payload enum_value = Payload::S2C_EnemyOwnerLeft;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_EnemyDamageT> {
+  static const Payload enum_value = Payload::C2S_EnemyDamage;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_EnemyDamageT> {
+  static const Payload enum_value = Payload::S2C_EnemyDamage;
 };
 
 struct PayloadUnion {
@@ -512,6 +590,62 @@ struct PayloadUnion {
     return type == Payload::S2C_CompanionMoveState ?
       reinterpret_cast<const ProtoType::Net::S2C_CompanionMoveStateT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_EnemyClaimRequestT *AsC2S_EnemyClaimRequest() {
+    return type == Payload::C2S_EnemyClaimRequest ?
+      reinterpret_cast<ProtoType::Net::C2S_EnemyClaimRequestT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_EnemyClaimRequestT *AsC2S_EnemyClaimRequest() const {
+    return type == Payload::C2S_EnemyClaimRequest ?
+      reinterpret_cast<const ProtoType::Net::C2S_EnemyClaimRequestT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_EnemyClaimResultT *AsS2C_EnemyClaimResult() {
+    return type == Payload::S2C_EnemyClaimResult ?
+      reinterpret_cast<ProtoType::Net::S2C_EnemyClaimResultT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_EnemyClaimResultT *AsS2C_EnemyClaimResult() const {
+    return type == Payload::S2C_EnemyClaimResult ?
+      reinterpret_cast<const ProtoType::Net::S2C_EnemyClaimResultT *>(value) : nullptr;
+  }
+  ProtoType::Net::C2S_EnemyStateT *AsC2S_EnemyState() {
+    return type == Payload::C2S_EnemyState ?
+      reinterpret_cast<ProtoType::Net::C2S_EnemyStateT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_EnemyStateT *AsC2S_EnemyState() const {
+    return type == Payload::C2S_EnemyState ?
+      reinterpret_cast<const ProtoType::Net::C2S_EnemyStateT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_EnemyStateT *AsS2C_EnemyState() {
+    return type == Payload::S2C_EnemyState ?
+      reinterpret_cast<ProtoType::Net::S2C_EnemyStateT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_EnemyStateT *AsS2C_EnemyState() const {
+    return type == Payload::S2C_EnemyState ?
+      reinterpret_cast<const ProtoType::Net::S2C_EnemyStateT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_EnemyOwnerLeftT *AsS2C_EnemyOwnerLeft() {
+    return type == Payload::S2C_EnemyOwnerLeft ?
+      reinterpret_cast<ProtoType::Net::S2C_EnemyOwnerLeftT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_EnemyOwnerLeftT *AsS2C_EnemyOwnerLeft() const {
+    return type == Payload::S2C_EnemyOwnerLeft ?
+      reinterpret_cast<const ProtoType::Net::S2C_EnemyOwnerLeftT *>(value) : nullptr;
+  }
+  ProtoType::Net::C2S_EnemyDamageT *AsC2S_EnemyDamage() {
+    return type == Payload::C2S_EnemyDamage ?
+      reinterpret_cast<ProtoType::Net::C2S_EnemyDamageT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_EnemyDamageT *AsC2S_EnemyDamage() const {
+    return type == Payload::C2S_EnemyDamage ?
+      reinterpret_cast<const ProtoType::Net::C2S_EnemyDamageT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_EnemyDamageT *AsS2C_EnemyDamage() {
+    return type == Payload::S2C_EnemyDamage ?
+      reinterpret_cast<ProtoType::Net::S2C_EnemyDamageT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_EnemyDamageT *AsS2C_EnemyDamage() const {
+    return type == Payload::S2C_EnemyDamage ?
+      reinterpret_cast<const ProtoType::Net::S2C_EnemyDamageT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -604,6 +738,27 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::S2C_CompanionMoveState *payload_as_S2C_CompanionMoveState() const {
     return payload_type() == ProtoType::Net::Payload::S2C_CompanionMoveState ? static_cast<const ProtoType::Net::S2C_CompanionMoveState *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_EnemyClaimRequest *payload_as_C2S_EnemyClaimRequest() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_EnemyClaimRequest ? static_cast<const ProtoType::Net::C2S_EnemyClaimRequest *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_EnemyClaimResult *payload_as_S2C_EnemyClaimResult() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_EnemyClaimResult ? static_cast<const ProtoType::Net::S2C_EnemyClaimResult *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_EnemyState *payload_as_C2S_EnemyState() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_EnemyState ? static_cast<const ProtoType::Net::C2S_EnemyState *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_EnemyState *payload_as_S2C_EnemyState() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_EnemyState ? static_cast<const ProtoType::Net::S2C_EnemyState *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_EnemyOwnerLeft *payload_as_S2C_EnemyOwnerLeft() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_EnemyOwnerLeft ? static_cast<const ProtoType::Net::S2C_EnemyOwnerLeft *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_EnemyDamage *payload_as_C2S_EnemyDamage() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_EnemyDamage ? static_cast<const ProtoType::Net::C2S_EnemyDamage *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_EnemyDamage *payload_as_S2C_EnemyDamage() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_EnemyDamage ? static_cast<const ProtoType::Net::S2C_EnemyDamage *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -704,6 +859,34 @@ template<> inline const ProtoType::Net::C2S_CompanionMoveInput *Packet::payload_
 
 template<> inline const ProtoType::Net::S2C_CompanionMoveState *Packet::payload_as<ProtoType::Net::S2C_CompanionMoveState>() const {
   return payload_as_S2C_CompanionMoveState();
+}
+
+template<> inline const ProtoType::Net::C2S_EnemyClaimRequest *Packet::payload_as<ProtoType::Net::C2S_EnemyClaimRequest>() const {
+  return payload_as_C2S_EnemyClaimRequest();
+}
+
+template<> inline const ProtoType::Net::S2C_EnemyClaimResult *Packet::payload_as<ProtoType::Net::S2C_EnemyClaimResult>() const {
+  return payload_as_S2C_EnemyClaimResult();
+}
+
+template<> inline const ProtoType::Net::C2S_EnemyState *Packet::payload_as<ProtoType::Net::C2S_EnemyState>() const {
+  return payload_as_C2S_EnemyState();
+}
+
+template<> inline const ProtoType::Net::S2C_EnemyState *Packet::payload_as<ProtoType::Net::S2C_EnemyState>() const {
+  return payload_as_S2C_EnemyState();
+}
+
+template<> inline const ProtoType::Net::S2C_EnemyOwnerLeft *Packet::payload_as<ProtoType::Net::S2C_EnemyOwnerLeft>() const {
+  return payload_as_S2C_EnemyOwnerLeft();
+}
+
+template<> inline const ProtoType::Net::C2S_EnemyDamage *Packet::payload_as<ProtoType::Net::C2S_EnemyDamage>() const {
+  return payload_as_C2S_EnemyDamage();
+}
+
+template<> inline const ProtoType::Net::S2C_EnemyDamage *Packet::payload_as<ProtoType::Net::S2C_EnemyDamage>() const {
+  return payload_as_S2C_EnemyDamage();
 }
 
 struct PacketBuilder {
@@ -867,6 +1050,34 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_CompanionMoveState *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_EnemyClaimRequest: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyClaimRequest *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_EnemyClaimResult: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyClaimResult *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::C2S_EnemyState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyState *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_EnemyState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyState *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_EnemyOwnerLeft: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyOwnerLeft *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::C2S_EnemyDamage: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyDamage *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_EnemyDamage: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyDamage *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -975,6 +1186,34 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_CompanionMoveState *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_EnemyClaimRequest: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyClaimRequest *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_EnemyClaimResult: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyClaimResult *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::C2S_EnemyState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyState *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_EnemyState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyState *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_EnemyOwnerLeft: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyOwnerLeft *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::C2S_EnemyDamage: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyDamage *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_EnemyDamage: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyDamage *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -1070,6 +1309,34 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_CompanionMoveStateT *>(value);
       return CreateS2C_CompanionMoveState(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_EnemyClaimRequest: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyClaimRequestT *>(value);
+      return CreateC2S_EnemyClaimRequest(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_EnemyClaimResult: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyClaimResultT *>(value);
+      return CreateS2C_EnemyClaimResult(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::C2S_EnemyState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyStateT *>(value);
+      return CreateC2S_EnemyState(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_EnemyState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyStateT *>(value);
+      return CreateS2C_EnemyState(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_EnemyOwnerLeft: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyOwnerLeftT *>(value);
+      return CreateS2C_EnemyOwnerLeft(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::C2S_EnemyDamage: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyDamageT *>(value);
+      return CreateC2S_EnemyDamage(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_EnemyDamage: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyDamageT *>(value);
+      return CreateS2C_EnemyDamage(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -1162,6 +1429,34 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_CompanionMoveState: {
       value = new ProtoType::Net::S2C_CompanionMoveStateT(*reinterpret_cast<ProtoType::Net::S2C_CompanionMoveStateT *>(u.value));
+      break;
+    }
+    case Payload::C2S_EnemyClaimRequest: {
+      value = new ProtoType::Net::C2S_EnemyClaimRequestT(*reinterpret_cast<ProtoType::Net::C2S_EnemyClaimRequestT *>(u.value));
+      break;
+    }
+    case Payload::S2C_EnemyClaimResult: {
+      value = new ProtoType::Net::S2C_EnemyClaimResultT(*reinterpret_cast<ProtoType::Net::S2C_EnemyClaimResultT *>(u.value));
+      break;
+    }
+    case Payload::C2S_EnemyState: {
+      value = new ProtoType::Net::C2S_EnemyStateT(*reinterpret_cast<ProtoType::Net::C2S_EnemyStateT *>(u.value));
+      break;
+    }
+    case Payload::S2C_EnemyState: {
+      value = new ProtoType::Net::S2C_EnemyStateT(*reinterpret_cast<ProtoType::Net::S2C_EnemyStateT *>(u.value));
+      break;
+    }
+    case Payload::S2C_EnemyOwnerLeft: {
+      value = new ProtoType::Net::S2C_EnemyOwnerLeftT(*reinterpret_cast<ProtoType::Net::S2C_EnemyOwnerLeftT *>(u.value));
+      break;
+    }
+    case Payload::C2S_EnemyDamage: {
+      value = new ProtoType::Net::C2S_EnemyDamageT(*reinterpret_cast<ProtoType::Net::C2S_EnemyDamageT *>(u.value));
+      break;
+    }
+    case Payload::S2C_EnemyDamage: {
+      value = new ProtoType::Net::S2C_EnemyDamageT(*reinterpret_cast<ProtoType::Net::S2C_EnemyDamageT *>(u.value));
       break;
     }
     default:
@@ -1278,6 +1573,41 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_CompanionMoveState: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_CompanionMoveStateT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_EnemyClaimRequest: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_EnemyClaimRequestT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_EnemyClaimResult: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_EnemyClaimResultT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_EnemyState: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_EnemyStateT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_EnemyState: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_EnemyStateT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_EnemyOwnerLeft: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_EnemyOwnerLeftT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_EnemyDamage: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_EnemyDamageT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_EnemyDamage: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_EnemyDamageT *>(value);
       delete ptr;
       break;
     }

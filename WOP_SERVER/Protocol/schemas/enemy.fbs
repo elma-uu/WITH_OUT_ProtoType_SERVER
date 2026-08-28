@@ -1,0 +1,67 @@
+include "common.fbs";
+
+namespace ProtoType.Net;
+
+// A client sends this once, right after BeginPlay, for every placed
+// AEnemyBase it sees in the level -- "I'm ready to drive this enemy's AI
+// (behavior tree, pathing, targeting) if nobody already is." enemy_id is a
+// hash of the placed actor's stable in-level name (same idea as
+// AItemContainerBase::GetContainerId), not something the server assigns.
+table C2S_EnemyClaimRequest {
+  enemy_id: uint32;
+}
+
+// granted=true: this session is now the one running enemy_id's AI locally
+// and should start broadcasting C2S_EnemyState for it. granted=false:
+// someone else already owns it -- this client should disable its own local
+// AI for that enemy_id and just mirror whatever S2C_EnemyState says.
+table S2C_EnemyClaimResult {
+  enemy_id: uint32;
+  granted: bool;
+}
+
+// Sent periodically (throttled) by whichever session owns enemy_id,
+// reporting its AI-driven position/facing/health/dead state. Trusted
+// as-is, same as C2S_MoveInput's position -- a non-owner sending this
+// would just be overwritten by the real owner's next update anyway.
+table C2S_EnemyState {
+  enemy_id: uint32;
+  position: Vec3;
+  look: Rotator;
+  health: float;
+  is_dead: bool;
+}
+
+// Broadcast to every OTHER client so their (non-owning) copy of this enemy
+// can mirror it instead of running its own AI.
+table S2C_EnemyState {
+  enemy_id: uint32;
+  position: Vec3;
+  look: Rotator;
+  health: float;
+  is_dead: bool;
+}
+
+// Broadcast when the owning session disconnects, so surviving clients know
+// this enemy_id no longer has a driver -- the next C2S_EnemyClaimRequest
+// for it should succeed. The enemy itself is NOT despawned; it's level
+// content, not a session's actor.
+table S2C_EnemyOwnerLeft {
+  enemy_id: uint32;
+}
+
+// Sent by a NON-owning client whose own local hit detection landed a shot
+// on this enemy -- it isn't the health authority, so instead of applying
+// the damage itself (which the next S2C_EnemyState would just overwrite
+// anyway) it asks the server to relay the hit to whoever is.
+table C2S_EnemyDamage {
+  enemy_id: uint32;
+  damage: float;
+}
+
+// Relayed by the server to ONLY the current owner of enemy_id (not
+// broadcast) -- see C2S_EnemyDamage's schema comment.
+table S2C_EnemyDamage {
+  enemy_id: uint32;
+  damage: float;
+}

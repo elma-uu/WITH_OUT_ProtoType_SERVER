@@ -340,6 +340,18 @@ namespace Wop
             ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
             Broadcast(sessionId, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                       static_cast<uint32_t>(fbb.GetSize()));
+
+            // Any enemy this session was driving needs a new owner -- it
+            // doesn't despawn just because its driver left.
+            for (uint32_t enemyId : ReleaseEnemiesOwnedBy(sessionId))
+            {
+                flatbuffers::FlatBufferBuilder ownerLeftFbb;
+                auto ownerLeft = ProtoType::Net::CreateS2C_EnemyOwnerLeft(ownerLeftFbb, enemyId);
+                auto ownerLeftPacket = ProtoType::Net::CreatePacket(ownerLeftFbb, ProtoType::Net::Payload::S2C_EnemyOwnerLeft, ownerLeft.Union());
+                ProtoType::Net::FinishSizePrefixedPacketBuffer(ownerLeftFbb, ownerLeftPacket);
+                Broadcast(sessionId, reinterpret_cast<const char*>(ownerLeftFbb.GetBufferPointer()),
+                          static_cast<uint32_t>(ownerLeftFbb.GetSize()));
+            }
         }
 
         // `keepAlive` drops here, destroying the Session (and deregistering
@@ -377,6 +389,48 @@ namespace Wop
         // client's roll) is left untouched and returned instead.
         const auto [it, inserted] = containerLoot_.try_emplace(containerId, std::move(proposed));
         return it->second;
+    }
+
+    bool EchoServer::ClaimEnemy(uint32_t enemyId, uint32_t sessionId)
+    {
+        std::lock_guard<std::mutex> guard(enemyOwnerLock_);
+        const auto [it, inserted] = enemyOwners_.try_emplace(enemyId, sessionId);
+        return inserted || it->second == sessionId;
+    }
+
+    std::vector<uint32_t> EchoServer::ReleaseEnemiesOwnedBy(uint32_t sessionId)
+    {
+        std::vector<uint32_t> released;
+        std::lock_guard<std::mutex> guard(enemyOwnerLock_);
+        for (auto it = enemyOwners_.begin(); it != enemyOwners_.end(); )
+        {
+            if (it->second == sessionId)
+            {
+                released.push_back(it->first);
+                it = enemyOwners_.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+        return released;
+    }
+
+    std::shared_ptr<Session> EchoServer::FindEnemyOwnerSession(uint32_t enemyId)
+    {
+        uint32_t ownerId = 0;
+        {
+            std::lock_guard<std::mutex> guard(enemyOwnerLock_);
+            const auto it = enemyOwners_.find(enemyId);
+            if (it == enemyOwners_.end())
+                return nullptr;
+            ownerId = it->second;
+        }
+
+        std::lock_guard<std::mutex> guard(sessionsLock_);
+        const auto it = sessions_.find(ownerId);
+        return it != sessions_.end() ? it->second : nullptr;
     }
 
     /*-------------------

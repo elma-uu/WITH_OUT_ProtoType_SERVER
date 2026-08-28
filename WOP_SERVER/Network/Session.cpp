@@ -86,6 +86,15 @@ namespace
             case Payload::C2S_CompanionMoveInput:
                 return "companion move";
 
+            case Payload::C2S_EnemyClaimRequest:
+                return "enemy claim request";
+
+            case Payload::C2S_EnemyState:
+                return "enemy state";
+
+            case Payload::C2S_EnemyDamage:
+                return "enemy damage";
+
             default:
                 return EnumNamePayload(packet->payload_type());
         }
@@ -583,6 +592,66 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_EnemyClaimRequest:
+            {
+                const auto* req = packet->payload_as_C2S_EnemyClaimRequest();
+                if (!req)
+                    break;
+
+                const bool granted = server_.ClaimEnemy(req->enemy_id(), id_);
+
+                flatbuffers::FlatBufferBuilder fbb;
+                auto result = CreateS2C_EnemyClaimResult(fbb, req->enemy_id(), granted);
+                auto reply = CreatePacket(fbb, Payload::S2C_EnemyClaimResult, result.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                            static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            case Payload::C2S_EnemyState:
+            {
+                const auto* req = packet->payload_as_C2S_EnemyState();
+                if (!req)
+                    break;
+
+                // Trusted as-is, same as C2S_MoveInput's position -- a
+                // non-owner sending this would just be overwritten by the
+                // real owner's next update anyway.
+                flatbuffers::FlatBufferBuilder fbb;
+                const Vec3 position = req->position() ? *req->position() : Vec3(0.0f, 0.0f, 0.0f);
+                const Rotator look = req->look() ? *req->look() : Rotator(0.0f, 0.0f, 0.0f);
+                auto state = CreateS2C_EnemyState(fbb, req->enemy_id(), &position, &look, req->health(), req->is_dead());
+                auto reply = CreatePacket(fbb, Payload::S2C_EnemyState, state.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            case Payload::C2S_EnemyDamage:
+            {
+                const auto* req = packet->payload_as_C2S_EnemyDamage();
+                if (!req)
+                    break;
+
+                // Unicast to the current owner only -- see this message's
+                // schema comment. Silently dropped if the enemy is
+                // unclaimed or its owner already disconnected; the next
+                // client to claim it starts from whatever health the last
+                // owner had broadcast.
+                if (auto ownerSession = server_.FindEnemyOwnerSession(req->enemy_id()))
+                {
+                    flatbuffers::FlatBufferBuilder fbb;
+                    auto damage = CreateS2C_EnemyDamage(fbb, req->enemy_id(), req->damage());
+                    auto reply = CreatePacket(fbb, Payload::S2C_EnemyDamage, damage.Union());
+                    FinishSizePrefixedPacketBuffer(fbb, reply);
+                    ownerSession->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                        static_cast<uint32_t>(fbb.GetSize()));
+                }
+                break;
+            }
+
             default:
                 break;
         }
@@ -699,7 +768,10 @@ namespace Wop
                  type == ProtoType::Net::Payload::C2S_SaveInventory ||
                  type == ProtoType::Net::Payload::C2S_SetVisible ||
                  type == ProtoType::Net::Payload::C2S_ContainerLootRoll ||
-                 type == ProtoType::Net::Payload::C2S_CompanionMoveInput);
+                 type == ProtoType::Net::Payload::C2S_CompanionMoveInput ||
+                 type == ProtoType::Net::Payload::C2S_EnemyClaimRequest ||
+                 type == ProtoType::Net::Payload::C2S_EnemyState ||
+                 type == ProtoType::Net::Payload::C2S_EnemyDamage);
             if (!skipSelfEcho)
                 EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

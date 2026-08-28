@@ -2,6 +2,7 @@
 #include "NetCommon.h"
 #include "Session.h"
 #include "Database.h"
+#include "EnemyAI.h"
 #include <atomic>
 #include <mutex>
 #include <thread>
@@ -77,6 +78,25 @@ namespace Wop
         // comment). nullptr if unclaimed or the owner already disconnected.
         std::shared_ptr<Session> FindEnemyOwnerSession(uint32_t enemyId);
 
+        /*-------------------
+         서버 권위 적(좀비) AI (멀티 맵 전용)
+        -------------------*/
+        // Loads the 2D obstacle boxes a multiplayer map's blocking geometry
+        // was exported to (see ExportLevelObstaclesCommandlet on the
+        // client side). Safe to call even if the file doesn't exist yet --
+        // enemies just move in straight lines until it does. Call before
+        // Start() (or any time; obstacles are only read by the AI tick).
+        void LoadEnemyObstacles(const std::string& path);
+
+        // Registers enemyId with the server-driven AI (first reporter's
+        // starting stats win) -- see C2S_EnemyRegister's schema comment.
+        void RegisterServerEnemy(uint32_t enemyId, const FEnemyAiRecord& initial);
+
+        // Applies damage directly to a server-driven enemy. Returns false
+        // if enemyId isn't server-driven (Session::BroadcastGameplayState
+        // should fall back to the client-ownership relay in that case).
+        bool ApplyServerEnemyDamage(uint32_t enemyId, float damage);
+
     private:
         static constexpr ULONG kCompletionQueueSize = 8192;
 
@@ -93,6 +113,7 @@ namespace Wop
         -------------------*/
         void AcceptLoop();
         void WorkerLoop();
+        void EnemyAiLoop();
 
         void OnAccepted(SOCKET clientSocket);
         void UnregisterSession(uint32_t sessionId);
@@ -122,6 +143,8 @@ namespace Wop
         std::atomic<bool> running_{false};
         std::thread acceptThread_;
         std::vector<std::thread> workerThreads_;
+        std::thread enemyAiThread_;
+        EnemyAI enemyAi_;
 
         std::mutex sessionsLock_;
         std::unordered_map<uint32_t, std::shared_ptr<Session>> sessions_;

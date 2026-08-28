@@ -7,8 +7,29 @@ namespace ProtoType.Net;
 // (behavior tree, pathing, targeting) if nobody already is." enemy_id is a
 // hash of the placed actor's stable in-level name (same idea as
 // AItemContainerBase::GetContainerId), not something the server assigns.
+// Only used in a map where nobody's driving enemies server-side (see
+// C2S_EnemyRegister) -- e.g. the Single map, or offline testing.
 table C2S_EnemyClaimRequest {
   enemy_id: uint32;
+}
+
+// Sent once, right after BeginPlay, by whichever multiplayer client's copy
+// of this enemy is first to report it -- when the client is in a
+// multiplayer-visible map (see
+// UProtoNetClientSubsystem::SetMultiplayerVisualsEnabled). Unlike
+// C2S_EnemyClaimRequest, this does NOT ask "can I drive it" -- the SERVER
+// drives it from here on (see EnemyAI.h), and every client (including the
+// one that sent this) just mirrors S2C_EnemyState. Ignored (server keeps
+// whatever it already has) if enemy_id is already registered -- first
+// report's starting stats win, same convention as
+// EchoServer::ClaimContainerLoot.
+table C2S_EnemyRegister {
+  enemy_id: uint32;
+  position: Vec3;
+  health: float;
+  max_health: float;
+  move_speed: float;
+  attack_range: float;
 }
 
 // granted=true: this session is now the one running enemy_id's AI locally

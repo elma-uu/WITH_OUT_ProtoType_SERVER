@@ -142,6 +142,8 @@
     <ClCompile Include="Network\EchoServer.cpp" />
     <ClCompile Include="Network\Session.cpp" />
     <ClCompile Include="Network\Database.cpp" />
+    <ClCompile Include="Network\EnemyAI.cpp" />
+    <ClCompile Include="Network\LevelObstacles.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Network\NetCommon.h" />
@@ -150,6 +152,8 @@
     <ClInclude Include="Network\Session.h" />
     <ClInclude Include="Network\EchoServer.h" />
     <ClInclude Include="Network\Database.h" />
+    <ClInclude Include="Network\EnemyAI.h" />
+    <ClInclude Include="Network\LevelObstacles.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

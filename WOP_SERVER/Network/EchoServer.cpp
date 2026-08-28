@@ -1,6 +1,8 @@
 ﻿#include "EchoServer.h"
 #include "RioApi.h"
 #include "packet.h"
+#include <array>
+#include <chrono>
 #include <iterator>
 
 namespace Wop
@@ -136,6 +138,7 @@ namespace Wop
             workerThreads_.emplace_back([this] { WorkerLoop(); });
 
         acceptThread_ = std::thread([this] { AcceptLoop(); });
+        enemyAiThread_ = std::thread([this] { EnemyAiLoop(); });
 
         std::printf("EchoServer listening on port %u with %u worker thread(s)\n",
                      port_, workerThreadCount_);
@@ -157,6 +160,9 @@ namespace Wop
 
         if (acceptThread_.joinable())
             acceptThread_.join();
+
+        if (enemyAiThread_.joinable())
+            enemyAiThread_.join();
 
         for (size_t i = 0; i < workerThreads_.size(); ++i)
             PostQueuedCompletionStatus(iocp_, 0, kShutdownCompletionKey, nullptr);
@@ -431,6 +437,66 @@ namespace Wop
         std::lock_guard<std::mutex> guard(sessionsLock_);
         const auto it = sessions_.find(ownerId);
         return it != sessions_.end() ? it->second : nullptr;
+    }
+
+    /*-------------------
+     서버 권위 적(좀비) AI (멀티 맵 전용)
+    -------------------*/
+    void EchoServer::LoadEnemyObstacles(const std::string& path)
+    {
+        enemyAi_.LoadObstacles(path);
+    }
+
+    void EchoServer::RegisterServerEnemy(uint32_t enemyId, const FEnemyAiRecord& initial)
+    {
+        enemyAi_.RegisterIfNew(enemyId, initial);
+    }
+
+    bool EchoServer::ApplyServerEnemyDamage(uint32_t enemyId, float damage)
+    {
+        return enemyAi_.ApplyDamage(enemyId, damage);
+    }
+
+    void EchoServer::EnemyAiLoop()
+    {
+        constexpr auto kTickInterval = std::chrono::milliseconds(150);
+        auto lastTick = std::chrono::steady_clock::now();
+
+        while (running_.load(std::memory_order_acquire))
+        {
+            std::this_thread::sleep_for(kTickInterval);
+            if (!running_.load(std::memory_order_acquire))
+                break;
+
+            const auto now = std::chrono::steady_clock::now();
+            const float deltaSeconds = std::chrono::duration<float>(now - lastTick).count();
+            lastTick = now;
+
+            // Session id 0 never belongs to a real connection, so this
+            // snapshots every connected player's position -- there's no
+            // single "excluded" session for server-driven AI the way there
+            // is for a player's own broadcast.
+            std::vector<std::array<float, 3>> playerPositions;
+            for (const auto& session : SnapshotOtherSessions(0))
+            {
+                const ProtoType::Net::Vec3 pos = session->GetPosition();
+                playerPositions.push_back({ pos.x(), pos.y(), pos.z() });
+            }
+
+            const auto updates = enemyAi_.Tick(deltaSeconds, playerPositions);
+            for (const auto& update : updates)
+            {
+                flatbuffers::FlatBufferBuilder fbb;
+                const ProtoType::Net::Vec3 position(update.record.posX, update.record.posY, update.record.posZ);
+                const ProtoType::Net::Rotator look(0.0f, update.record.lookYaw, 0.0f);
+                auto state = ProtoType::Net::CreateS2C_EnemyState(
+                    fbb, update.enemyId, &position, &look, update.record.health, update.record.isDead);
+                auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_EnemyState, state.Union());
+                ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
+                Broadcast(0, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                          static_cast<uint32_t>(fbb.GetSize()));
+            }
+        }
     }
 
     /*-------------------

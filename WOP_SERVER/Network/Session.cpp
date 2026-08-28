@@ -1,5 +1,6 @@
 ﻿#include "Session.h"
 #include "EchoServer.h"
+#include "EnemyAI.h"
 #include "RioApi.h"
 #include "Database.h"
 #include "packet.h"
@@ -94,6 +95,9 @@ namespace
 
             case Payload::C2S_EnemyDamage:
                 return "enemy damage";
+
+            case Payload::C2S_EnemyRegister:
+                return "enemy register";
 
             default:
                 return EnumNamePayload(packet->payload_type());
@@ -635,20 +639,54 @@ namespace Wop
                 if (!req)
                     break;
 
-                // Unicast to the current owner only -- see this message's
-                // schema comment. Silently dropped if the enemy is
-                // unclaimed or its owner already disconnected; the next
-                // client to claim it starts from whatever health the last
-                // owner had broadcast.
-                if (auto ownerSession = server_.FindEnemyOwnerSession(req->enemy_id()))
+                // Server-driven enemies (registered via C2S_EnemyRegister,
+                // Multi map only) apply damage directly -- the server IS
+                // the health authority for those, there's no owner to relay
+                // to. Falls back to the older client-ownership relay for
+                // everything else (Single map, or not yet registered).
+                if (!server_.ApplyServerEnemyDamage(req->enemy_id(), req->damage()))
                 {
-                    flatbuffers::FlatBufferBuilder fbb;
-                    auto damage = CreateS2C_EnemyDamage(fbb, req->enemy_id(), req->damage());
-                    auto reply = CreatePacket(fbb, Payload::S2C_EnemyDamage, damage.Union());
-                    FinishSizePrefixedPacketBuffer(fbb, reply);
-                    ownerSession->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                                        static_cast<uint32_t>(fbb.GetSize()));
+                    // Unicast to the current owner only -- see this message's
+                    // schema comment. Silently dropped if the enemy is
+                    // unclaimed or its owner already disconnected; the next
+                    // client to claim it starts from whatever health the last
+                    // owner had broadcast.
+                    if (auto ownerSession = server_.FindEnemyOwnerSession(req->enemy_id()))
+                    {
+                        flatbuffers::FlatBufferBuilder fbb;
+                        auto damage = CreateS2C_EnemyDamage(fbb, req->enemy_id(), req->damage());
+                        auto reply = CreatePacket(fbb, Payload::S2C_EnemyDamage, damage.Union());
+                        FinishSizePrefixedPacketBuffer(fbb, reply);
+                        ownerSession->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                            static_cast<uint32_t>(fbb.GetSize()));
+                    }
                 }
+                break;
+            }
+
+            case Payload::C2S_EnemyRegister:
+            {
+                const auto* req = packet->payload_as_C2S_EnemyRegister();
+                if (!req)
+                    break;
+
+                // No reply -- unlike C2S_EnemyClaimRequest, the registering
+                // client doesn't wait to find out if it "won" anything; it
+                // switches to mirroring S2C_EnemyState immediately (see
+                // AEnemyBase's multiplayer-map branch). The first
+                // registration for a given enemy_id wins its starting stats.
+                FEnemyAiRecord initial;
+                if (req->position())
+                {
+                    initial.posX = req->position()->x();
+                    initial.posY = req->position()->y();
+                    initial.posZ = req->position()->z();
+                }
+                initial.health = req->health();
+                initial.maxHealth = req->max_health();
+                initial.moveSpeed = req->move_speed();
+                initial.attackRange = req->attack_range();
+                server_.RegisterServerEnemy(req->enemy_id(), initial);
                 break;
             }
 
@@ -771,7 +809,8 @@ namespace Wop
                  type == ProtoType::Net::Payload::C2S_CompanionMoveInput ||
                  type == ProtoType::Net::Payload::C2S_EnemyClaimRequest ||
                  type == ProtoType::Net::Payload::C2S_EnemyState ||
-                 type == ProtoType::Net::Payload::C2S_EnemyDamage);
+                 type == ProtoType::Net::Payload::C2S_EnemyDamage ||
+                 type == ProtoType::Net::Payload::C2S_EnemyRegister);
             if (!skipSelfEcho)
                 EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

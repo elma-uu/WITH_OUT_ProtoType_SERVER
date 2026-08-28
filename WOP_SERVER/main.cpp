@@ -17,6 +17,12 @@ int main()
     }
 
     Wop::EchoServer server(kPort, kWorkerThreadCount, kMaxPlayers);
+
+    // Multi map's exported wall geometry, for server-driven enemy obstacle
+    // avoidance -- see ExportLevelObstaclesCommandlet on the client side.
+    // No-op (enemies just move in straight lines) if this file is missing.
+    server.LoadEnemyObstacles("Data/L_Stage2_obstacles.txt");
+
     if (!server.Start())
     {
         std::printf("Failed to start EchoServer.\n");

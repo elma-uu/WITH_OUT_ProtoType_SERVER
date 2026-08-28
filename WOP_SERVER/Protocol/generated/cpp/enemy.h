@@ -22,6 +22,10 @@ struct C2S_EnemyClaimRequest;
 struct C2S_EnemyClaimRequestBuilder;
 struct C2S_EnemyClaimRequestT;
 
+struct C2S_EnemyRegister;
+struct C2S_EnemyRegisterBuilder;
+struct C2S_EnemyRegisterT;
+
 struct S2C_EnemyClaimResult;
 struct S2C_EnemyClaimResultBuilder;
 struct S2C_EnemyClaimResultT;
@@ -104,6 +108,124 @@ struct C2S_EnemyClaimRequest::Traits {
 };
 
 ::flatbuffers::Offset<C2S_EnemyClaimRequest> CreateC2S_EnemyClaimRequest(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_EnemyClaimRequestT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct C2S_EnemyRegisterT : public ::flatbuffers::NativeTable {
+  typedef C2S_EnemyRegister TableType;
+  uint32_t enemy_id = 0;
+  std::unique_ptr<ProtoType::Net::Vec3> position{};
+  float health = 0.0f;
+  float max_health = 0.0f;
+  float move_speed = 0.0f;
+  float attack_range = 0.0f;
+  C2S_EnemyRegisterT() = default;
+  C2S_EnemyRegisterT(const C2S_EnemyRegisterT &o);
+  C2S_EnemyRegisterT(C2S_EnemyRegisterT&&) FLATBUFFERS_NOEXCEPT = default;
+  C2S_EnemyRegisterT &operator=(C2S_EnemyRegisterT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct C2S_EnemyRegister FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_EnemyRegisterT NativeTableType;
+  typedef C2S_EnemyRegisterBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENEMY_ID = 4,
+    VT_POSITION = 6,
+    VT_HEALTH = 8,
+    VT_MAX_HEALTH = 10,
+    VT_MOVE_SPEED = 12,
+    VT_ATTACK_RANGE = 14
+  };
+  uint32_t enemy_id() const {
+    return GetField<uint32_t>(VT_ENEMY_ID, 0);
+  }
+  const ProtoType::Net::Vec3 *position() const {
+    return GetStruct<const ProtoType::Net::Vec3 *>(VT_POSITION);
+  }
+  float health() const {
+    return GetField<float>(VT_HEALTH, 0.0f);
+  }
+  float max_health() const {
+    return GetField<float>(VT_MAX_HEALTH, 0.0f);
+  }
+  float move_speed() const {
+    return GetField<float>(VT_MOVE_SPEED, 0.0f);
+  }
+  float attack_range() const {
+    return GetField<float>(VT_ATTACK_RANGE, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ENEMY_ID, 4) &&
+           VerifyField<ProtoType::Net::Vec3>(verifier, VT_POSITION, 4) &&
+           VerifyField<float>(verifier, VT_HEALTH, 4) &&
+           VerifyField<float>(verifier, VT_MAX_HEALTH, 4) &&
+           VerifyField<float>(verifier, VT_MOVE_SPEED, 4) &&
+           VerifyField<float>(verifier, VT_ATTACK_RANGE, 4) &&
+           verifier.EndTable();
+  }
+  C2S_EnemyRegisterT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_EnemyRegisterT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_EnemyRegister> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_EnemyRegisterT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_EnemyRegisterBuilder {
+  typedef C2S_EnemyRegister Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_enemy_id(uint32_t enemy_id) {
+    fbb_.AddElement<uint32_t>(C2S_EnemyRegister::VT_ENEMY_ID, enemy_id, 0);
+  }
+  void add_position(const ProtoType::Net::Vec3 *position) {
+    fbb_.AddStruct(C2S_EnemyRegister::VT_POSITION, position);
+  }
+  void add_health(float health) {
+    fbb_.AddElement<float>(C2S_EnemyRegister::VT_HEALTH, health, 0.0f);
+  }
+  void add_max_health(float max_health) {
+    fbb_.AddElement<float>(C2S_EnemyRegister::VT_MAX_HEALTH, max_health, 0.0f);
+  }
+  void add_move_speed(float move_speed) {
+    fbb_.AddElement<float>(C2S_EnemyRegister::VT_MOVE_SPEED, move_speed, 0.0f);
+  }
+  void add_attack_range(float attack_range) {
+    fbb_.AddElement<float>(C2S_EnemyRegister::VT_ATTACK_RANGE, attack_range, 0.0f);
+  }
+  explicit C2S_EnemyRegisterBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_EnemyRegister> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_EnemyRegister>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_EnemyRegister> CreateC2S_EnemyRegister(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t enemy_id = 0,
+    const ProtoType::Net::Vec3 *position = nullptr,
+    float health = 0.0f,
+    float max_health = 0.0f,
+    float move_speed = 0.0f,
+    float attack_range = 0.0f) {
+  C2S_EnemyRegisterBuilder builder_(_fbb);
+  builder_.add_attack_range(attack_range);
+  builder_.add_move_speed(move_speed);
+  builder_.add_max_health(max_health);
+  builder_.add_health(health);
+  builder_.add_position(position);
+  builder_.add_enemy_id(enemy_id);
+  return builder_.Finish();
+}
+
+struct C2S_EnemyRegister::Traits {
+  using type = C2S_EnemyRegister;
+  static auto constexpr Create = CreateC2S_EnemyRegister;
+};
+
+::flatbuffers::Offset<C2S_EnemyRegister> CreateC2S_EnemyRegister(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_EnemyRegisterT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct S2C_EnemyClaimResultT : public ::flatbuffers::NativeTable {
   typedef S2C_EnemyClaimResult TableType;
@@ -612,6 +734,66 @@ inline ::flatbuffers::Offset<C2S_EnemyClaimRequest> C2S_EnemyClaimRequest::Pack(
   return ProtoType::Net::CreateC2S_EnemyClaimRequest(
       _fbb,
       _enemy_id);
+}
+
+inline C2S_EnemyRegisterT::C2S_EnemyRegisterT(const C2S_EnemyRegisterT &o)
+      : enemy_id(o.enemy_id),
+        position((o.position) ? new ProtoType::Net::Vec3(*o.position) : nullptr),
+        health(o.health),
+        max_health(o.max_health),
+        move_speed(o.move_speed),
+        attack_range(o.attack_range) {
+}
+
+inline C2S_EnemyRegisterT &C2S_EnemyRegisterT::operator=(C2S_EnemyRegisterT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(enemy_id, o.enemy_id);
+  std::swap(position, o.position);
+  std::swap(health, o.health);
+  std::swap(max_health, o.max_health);
+  std::swap(move_speed, o.move_speed);
+  std::swap(attack_range, o.attack_range);
+  return *this;
+}
+
+inline C2S_EnemyRegisterT *C2S_EnemyRegister::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_EnemyRegisterT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_EnemyRegister::UnPackTo(C2S_EnemyRegisterT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = enemy_id(); _o->enemy_id = _e; }
+  { auto _e = position(); if (_e) _o->position = std::unique_ptr<ProtoType::Net::Vec3>(new ProtoType::Net::Vec3(*_e)); }
+  { auto _e = health(); _o->health = _e; }
+  { auto _e = max_health(); _o->max_health = _e; }
+  { auto _e = move_speed(); _o->move_speed = _e; }
+  { auto _e = attack_range(); _o->attack_range = _e; }
+}
+
+inline ::flatbuffers::Offset<C2S_EnemyRegister> CreateC2S_EnemyRegister(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_EnemyRegisterT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_EnemyRegister::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_EnemyRegister> C2S_EnemyRegister::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_EnemyRegisterT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_EnemyRegisterT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _enemy_id = _o->enemy_id;
+  auto _position = _o->position ? _o->position.get() : nullptr;
+  auto _health = _o->health;
+  auto _max_health = _o->max_health;
+  auto _move_speed = _o->move_speed;
+  auto _attack_range = _o->attack_range;
+  return ProtoType::Net::CreateC2S_EnemyRegister(
+      _fbb,
+      _enemy_id,
+      _position,
+      _health,
+      _max_health,
+      _move_speed,
+      _attack_range);
 }
 
 inline S2C_EnemyClaimResultT *S2C_EnemyClaimResult::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {

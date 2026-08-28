@@ -61,11 +61,12 @@ enum class Payload : uint8_t {
   S2C_EnemyOwnerLeft = 27,
   C2S_EnemyDamage = 28,
   S2C_EnemyDamage = 29,
+  C2S_EnemyRegister = 30,
   MIN = NONE,
-  MAX = S2C_EnemyDamage
+  MAX = C2S_EnemyRegister
 };
 
-inline const Payload (&EnumValuesPayload())[30] {
+inline const Payload (&EnumValuesPayload())[31] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -96,13 +97,14 @@ inline const Payload (&EnumValuesPayload())[30] {
     Payload::S2C_EnemyState,
     Payload::S2C_EnemyOwnerLeft,
     Payload::C2S_EnemyDamage,
-    Payload::S2C_EnemyDamage
+    Payload::S2C_EnemyDamage,
+    Payload::C2S_EnemyRegister
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[31] = {
+  static const char * const names[32] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -133,13 +135,14 @@ inline const char * const *EnumNamesPayload() {
     "S2C_EnemyOwnerLeft",
     "C2S_EnemyDamage",
     "S2C_EnemyDamage",
+    "C2S_EnemyRegister",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_EnemyDamage)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::C2S_EnemyRegister)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -264,6 +267,10 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_EnemyDamage> {
   static const Payload enum_value = Payload::S2C_EnemyDamage;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_EnemyRegister> {
+  static const Payload enum_value = Payload::C2S_EnemyRegister;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -382,6 +389,10 @@ template<> struct PayloadUnionTraits<ProtoType::Net::C2S_EnemyDamageT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_EnemyDamageT> {
   static const Payload enum_value = Payload::S2C_EnemyDamage;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_EnemyRegisterT> {
+  static const Payload enum_value = Payload::C2S_EnemyRegister;
 };
 
 struct PayloadUnion {
@@ -646,6 +657,14 @@ struct PayloadUnion {
     return type == Payload::S2C_EnemyDamage ?
       reinterpret_cast<const ProtoType::Net::S2C_EnemyDamageT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_EnemyRegisterT *AsC2S_EnemyRegister() {
+    return type == Payload::C2S_EnemyRegister ?
+      reinterpret_cast<ProtoType::Net::C2S_EnemyRegisterT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_EnemyRegisterT *AsC2S_EnemyRegister() const {
+    return type == Payload::C2S_EnemyRegister ?
+      reinterpret_cast<const ProtoType::Net::C2S_EnemyRegisterT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -759,6 +778,9 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::S2C_EnemyDamage *payload_as_S2C_EnemyDamage() const {
     return payload_type() == ProtoType::Net::Payload::S2C_EnemyDamage ? static_cast<const ProtoType::Net::S2C_EnemyDamage *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_EnemyRegister *payload_as_C2S_EnemyRegister() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_EnemyRegister ? static_cast<const ProtoType::Net::C2S_EnemyRegister *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -887,6 +909,10 @@ template<> inline const ProtoType::Net::C2S_EnemyDamage *Packet::payload_as<Prot
 
 template<> inline const ProtoType::Net::S2C_EnemyDamage *Packet::payload_as<ProtoType::Net::S2C_EnemyDamage>() const {
   return payload_as_S2C_EnemyDamage();
+}
+
+template<> inline const ProtoType::Net::C2S_EnemyRegister *Packet::payload_as<ProtoType::Net::C2S_EnemyRegister>() const {
+  return payload_as_C2S_EnemyRegister();
 }
 
 struct PacketBuilder {
@@ -1078,6 +1104,10 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyDamage *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_EnemyRegister: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyRegister *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -1214,6 +1244,10 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyDamage *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_EnemyRegister: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyRegister *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -1337,6 +1371,10 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyDamageT *>(value);
       return CreateS2C_EnemyDamage(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_EnemyRegister: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_EnemyRegisterT *>(value);
+      return CreateC2S_EnemyRegister(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -1457,6 +1495,10 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_EnemyDamage: {
       value = new ProtoType::Net::S2C_EnemyDamageT(*reinterpret_cast<ProtoType::Net::S2C_EnemyDamageT *>(u.value));
+      break;
+    }
+    case Payload::C2S_EnemyRegister: {
+      value = new ProtoType::Net::C2S_EnemyRegisterT(*reinterpret_cast<ProtoType::Net::C2S_EnemyRegisterT *>(u.value));
       break;
     }
     default:
@@ -1608,6 +1650,11 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_EnemyDamage: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_EnemyDamageT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_EnemyRegister: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_EnemyRegisterT *>(value);
       delete ptr;
       break;
     }

@@ -54,6 +54,10 @@ struct S2C_EnemyAttackResult;
 struct S2C_EnemyAttackResultBuilder;
 struct S2C_EnemyAttackResultT;
 
+struct S2C_EnemyAttackBroadcast;
+struct S2C_EnemyAttackBroadcastBuilder;
+struct S2C_EnemyAttackBroadcastT;
+
 struct C2S_EnemyClaimRequestT : public ::flatbuffers::NativeTable {
   typedef C2S_EnemyClaimRequest TableType;
   uint32_t enemy_id = 0;
@@ -817,6 +821,65 @@ struct S2C_EnemyAttackResult::Traits {
 
 ::flatbuffers::Offset<S2C_EnemyAttackResult> CreateS2C_EnemyAttackResult(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackResultT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct S2C_EnemyAttackBroadcastT : public ::flatbuffers::NativeTable {
+  typedef S2C_EnemyAttackBroadcast TableType;
+  uint32_t enemy_id = 0;
+};
+
+struct S2C_EnemyAttackBroadcast FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_EnemyAttackBroadcastT NativeTableType;
+  typedef S2C_EnemyAttackBroadcastBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENEMY_ID = 4
+  };
+  uint32_t enemy_id() const {
+    return GetField<uint32_t>(VT_ENEMY_ID, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ENEMY_ID, 4) &&
+           verifier.EndTable();
+  }
+  S2C_EnemyAttackBroadcastT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_EnemyAttackBroadcastT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_EnemyAttackBroadcast> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackBroadcastT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_EnemyAttackBroadcastBuilder {
+  typedef S2C_EnemyAttackBroadcast Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_enemy_id(uint32_t enemy_id) {
+    fbb_.AddElement<uint32_t>(S2C_EnemyAttackBroadcast::VT_ENEMY_ID, enemy_id, 0);
+  }
+  explicit S2C_EnemyAttackBroadcastBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_EnemyAttackBroadcast> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_EnemyAttackBroadcast>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_EnemyAttackBroadcast> CreateS2C_EnemyAttackBroadcast(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t enemy_id = 0) {
+  S2C_EnemyAttackBroadcastBuilder builder_(_fbb);
+  builder_.add_enemy_id(enemy_id);
+  return builder_.Finish();
+}
+
+struct S2C_EnemyAttackBroadcast::Traits {
+  using type = S2C_EnemyAttackBroadcast;
+  static auto constexpr Create = CreateS2C_EnemyAttackBroadcast;
+};
+
+::flatbuffers::Offset<S2C_EnemyAttackBroadcast> CreateS2C_EnemyAttackBroadcast(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackBroadcastT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline C2S_EnemyClaimRequestT *C2S_EnemyClaimRequest::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<C2S_EnemyClaimRequestT>();
   UnPackTo(_o.get(), _resolver);
@@ -1166,6 +1229,32 @@ inline ::flatbuffers::Offset<S2C_EnemyAttackResult> S2C_EnemyAttackResult::Pack(
       _enemy_id,
       _target_player_id,
       _damage);
+}
+
+inline S2C_EnemyAttackBroadcastT *S2C_EnemyAttackBroadcast::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_EnemyAttackBroadcastT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_EnemyAttackBroadcast::UnPackTo(S2C_EnemyAttackBroadcastT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = enemy_id(); _o->enemy_id = _e; }
+}
+
+inline ::flatbuffers::Offset<S2C_EnemyAttackBroadcast> CreateS2C_EnemyAttackBroadcast(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackBroadcastT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_EnemyAttackBroadcast::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_EnemyAttackBroadcast> S2C_EnemyAttackBroadcast::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackBroadcastT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_EnemyAttackBroadcastT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _enemy_id = _o->enemy_id;
+  return ProtoType::Net::CreateS2C_EnemyAttackBroadcast(
+      _fbb,
+      _enemy_id);
 }
 
 }  // namespace Net

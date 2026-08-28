@@ -522,6 +522,17 @@ namespace Wop
                 ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
                 targetSession->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                      static_cast<uint32_t>(fbb.GetSize()));
+
+                // Everyone else's mirrored copy of enemyId needs to see the
+                // swing too, not just the target's health drop -- see
+                // S2C_EnemyAttackBroadcast's schema comment.
+                flatbuffers::FlatBufferBuilder broadcastFbb;
+                auto broadcastMsg = ProtoType::Net::CreateS2C_EnemyAttackBroadcast(broadcastFbb, attack.enemyId);
+                auto broadcastPacket = ProtoType::Net::CreatePacket(
+                    broadcastFbb, ProtoType::Net::Payload::S2C_EnemyAttackBroadcast, broadcastMsg.Union());
+                ProtoType::Net::FinishSizePrefixedPacketBuffer(broadcastFbb, broadcastPacket);
+                Broadcast(0, reinterpret_cast<const char*>(broadcastFbb.GetBufferPointer()),
+                          static_cast<uint32_t>(broadcastFbb.GetSize()));
             }
         }
     }

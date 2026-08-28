@@ -105,3 +105,14 @@ table S2C_EnemyAttackResult {
   target_player_id: uint32;
   damage: float;
 }
+
+// Broadcast to EVERY connected client (not just the target) at the same
+// moment as the S2C_EnemyAttackResult above -- pure visual/animation sync,
+// no damage here. Mirrors the C2S_AttackRequest -> {S2C_AttackBroadcast,
+// S2C_AttackResult} split: this is the "everyone sees the swing" half, so
+// non-target clients' (non-owning, since a server-driven enemy has no
+// owning client at all) mirrored copy of enemy_id plays its attack
+// animation instead of standing there silently draining someone's health.
+table S2C_EnemyAttackBroadcast {
+  enemy_id: uint32;
+}

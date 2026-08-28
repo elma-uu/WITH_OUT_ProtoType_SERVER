@@ -41,27 +41,27 @@ namespace Wop
         return true;
     }
 
-    std::vector<FEnemyStateUpdate> EnemyAI::Tick(float deltaSeconds, const std::vector<std::array<float, 3>>& playerPositions)
+    FEnemyTickResult EnemyAI::Tick(float deltaSeconds, const std::vector<FEnemyAiPlayerSnapshot>& players)
     {
-        std::vector<FEnemyStateUpdate> updates;
+        FEnemyTickResult result;
         std::lock_guard<std::mutex> guard(lock_);
-        updates.reserve(enemies_.size());
+        result.stateUpdates.reserve(enemies_.size());
 
         for (auto& [enemyId, record] : enemies_)
         {
-            if (record.isDead || playerPositions.empty())
+            if (record.isDead || players.empty())
             {
-                updates.push_back({ enemyId, record });
+                result.stateUpdates.push_back({ enemyId, record });
                 continue;
             }
 
             // Nearest player, 2D distance (height doesn't matter for chasing).
             size_t nearestIdx = 0;
             float nearestDistSq = std::numeric_limits<float>::max();
-            for (size_t i = 0; i < playerPositions.size(); ++i)
+            for (size_t i = 0; i < players.size(); ++i)
             {
-                const float dx = playerPositions[i][0] - record.posX;
-                const float dy = playerPositions[i][1] - record.posY;
+                const float dx = players[i].x - record.posX;
+                const float dy = players[i].y - record.posY;
                 const float distSq = dx * dx + dy * dy;
                 if (distSq < nearestDistSq)
                 {
@@ -74,8 +74,13 @@ namespace Wop
 
             if (nearestDist > record.attackRange)
             {
-                const float targetX = playerPositions[nearestIdx][0];
-                const float targetY = playerPositions[nearestIdx][1];
+                // Out of range -- chasing, so the attack timer doesn't
+                // advance (see FEnemyAiRecord::attackCooldownRemaining):
+                // walking away and back doesn't buy an instant free hit,
+                // but it doesn't get punished either, whatever was left
+                // just resumes.
+                const float targetX = players[nearestIdx].x;
+                const float targetY = players[nearestIdx].y;
 
                 float dirX = (targetX - record.posX) / std::max(nearestDist, 0.0001f);
                 float dirY = (targetY - record.posY) / std::max(nearestDist, 0.0001f);
@@ -121,14 +126,23 @@ namespace Wop
                 record.posY += dirY * moveDist;
                 record.lookYaw = std::atan2(dirY, dirX) * 180.0f / kPi;
             }
-            // else: already within attack range -- hold position. Attack
-            // animation/damage-to-player isn't wired up for the
-            // server-driven path yet (see EnemyBase.cpp's comment on
-            // HandleEnemyState) -- movement only, for now.
+            else
+            {
+                // Within attack range -- hold position and swing on
+                // cooldown. No telegraph/animation sync yet (clients just
+                // see the health tick down); see this record's field
+                // comment for why the timer starts at 0 (hits on arrival).
+                record.attackCooldownRemaining -= deltaSeconds;
+                if (record.attackCooldownRemaining <= 0.0f)
+                {
+                    record.attackCooldownRemaining = record.attackCooldown;
+                    result.attackEvents.push_back({ enemyId, players[nearestIdx].sessionId, record.attackDamage });
+                }
+            }
 
-            updates.push_back({ enemyId, record });
+            result.stateUpdates.push_back({ enemyId, record });
         }
 
-        return updates;
+        return result;
     }
 }

@@ -1,7 +1,6 @@
 ﻿#include "EchoServer.h"
 #include "RioApi.h"
 #include "packet.h"
-#include <array>
 #include <chrono>
 #include <iterator>
 
@@ -473,18 +472,21 @@ namespace Wop
             lastTick = now;
 
             // Session id 0 never belongs to a real connection, so this
-            // snapshots every connected player's position -- there's no
-            // single "excluded" session for server-driven AI the way there
-            // is for a player's own broadcast.
-            std::vector<std::array<float, 3>> playerPositions;
+            // snapshots every connected player -- there's no single
+            // "excluded" session for server-driven AI the way there is for
+            // a player's own broadcast. Session id travels along with the
+            // position now (not just a bare position) so an attack event
+            // can name WHO it landed on.
+            std::vector<FEnemyAiPlayerSnapshot> playerSnapshots;
             for (const auto& session : SnapshotOtherSessions(0))
             {
                 const ProtoType::Net::Vec3 pos = session->GetPosition();
-                playerPositions.push_back({ pos.x(), pos.y(), pos.z() });
+                playerSnapshots.push_back({ session->GetId(), pos.x(), pos.y(), pos.z() });
             }
 
-            const auto updates = enemyAi_.Tick(deltaSeconds, playerPositions);
-            for (const auto& update : updates)
+            const FEnemyTickResult tickResult = enemyAi_.Tick(deltaSeconds, playerSnapshots);
+
+            for (const auto& update : tickResult.stateUpdates)
             {
                 flatbuffers::FlatBufferBuilder fbb;
                 const ProtoType::Net::Vec3 position(update.record.posX, update.record.posY, update.record.posZ);
@@ -495,6 +497,31 @@ namespace Wop
                 ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
                 Broadcast(0, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                           static_cast<uint32_t>(fbb.GetSize()));
+            }
+
+            for (const auto& attack : tickResult.attackEvents)
+            {
+                // Unicast, same trust tier as S2C_AttackResult -- the
+                // server decided this hit happened and how much it's
+                // worth, but the target's own client applies it to its own
+                // health (see S2C_EnemyAttackResult's schema comment).
+                std::shared_ptr<Session> targetSession;
+                {
+                    std::lock_guard<std::mutex> guard(sessionsLock_);
+                    const auto it = sessions_.find(attack.targetSessionId);
+                    if (it != sessions_.end())
+                        targetSession = it->second;
+                }
+                if (!targetSession)
+                    continue;
+
+                flatbuffers::FlatBufferBuilder fbb;
+                auto result = ProtoType::Net::CreateS2C_EnemyAttackResult(
+                    fbb, attack.enemyId, attack.targetSessionId, attack.damage);
+                auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_EnemyAttackResult, result.Union());
+                ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
+                targetSession->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                     static_cast<uint32_t>(fbb.GetSize()));
             }
         }
     }

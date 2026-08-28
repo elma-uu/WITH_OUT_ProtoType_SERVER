@@ -1,6 +1,5 @@
 #pragma once
 #include "LevelObstacles.h"
-#include <array>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -19,6 +18,12 @@ namespace Wop
         float maxHealth = 100.0f;
         float moveSpeed = 300.0f;
         float attackRange = 150.0f;
+        float attackDamage = 10.0f;
+        float attackCooldown = 1.0f;
+        // Counts down only while a player is within attackRange (see
+        // EnemyAI::Tick) -- starts at 0 so the first player to walk into
+        // range gets hit right away instead of waiting out a full cooldown.
+        float attackCooldownRemaining = 0.0f;
         bool isDead = false;
     };
 
@@ -26,6 +31,34 @@ namespace Wop
     {
         uint32_t enemyId = 0;
         FEnemyAiRecord record;
+    };
+
+    // One player identified by session id, for EnemyAI::Tick to know WHO
+    // to send an attack event to -- plain positions alone (the old
+    // interface) can't identify a target.
+    struct FEnemyAiPlayerSnapshot
+    {
+        uint32_t sessionId = 0;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+    };
+
+    // A server-driven enemy_id's attack landing on target's own client --
+    // see S2C_EnemyAttackResult's schema comment. The server decides
+    // if/when/how much damage lands; the target's client is trusted to
+    // apply it, same tier as C2S_AttackRequest's gun damage already is.
+    struct FEnemyAttackEvent
+    {
+        uint32_t enemyId = 0;
+        uint32_t targetSessionId = 0;
+        float damage = 0.0f;
+    };
+
+    struct FEnemyTickResult
+    {
+        std::vector<FEnemyStateUpdate> stateUpdates;
+        std::vector<FEnemyAttackEvent> attackEvents;
     };
 
     // Server-side authority for every AEnemyBase that registers itself
@@ -60,11 +93,13 @@ namespace Wop
         bool ApplyDamage(uint32_t enemyId, float damage);
 
         // Advances every tracked (non-dead) enemy by deltaSeconds, steering
-        // each toward whichever position in playerPositions is nearest (2D
-        // distance). Returns every enemy's current state for the caller to
-        // broadcast -- there's no per-enemy dirty-tracking, the caller's
-        // own tick rate is the throttle.
-        std::vector<FEnemyStateUpdate> Tick(float deltaSeconds, const std::vector<std::array<float, 3>>& playerPositions);
+        // each toward whichever player in players is nearest (2D distance).
+        // Once within attackRange, holds position and -- on attackCooldown
+        // -- emits an FEnemyAttackEvent against that nearest player instead
+        // of moving. Returns every enemy's current state for the caller to
+        // broadcast (there's no per-enemy dirty-tracking, the caller's own
+        // tick rate is the throttle) alongside any attacks landed this tick.
+        FEnemyTickResult Tick(float deltaSeconds, const std::vector<FEnemyAiPlayerSnapshot>& players);
 
     private:
         std::mutex lock_;

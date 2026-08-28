@@ -30,6 +30,8 @@ table C2S_EnemyRegister {
   max_health: float;
   move_speed: float;
   attack_range: float;
+  attack_damage: float;
+  attack_cooldown: float;
 }
 
 // granted=true: this session is now the one running enemy_id's AI locally
@@ -84,5 +86,22 @@ table C2S_EnemyDamage {
 // broadcast) -- see C2S_EnemyDamage's schema comment.
 table S2C_EnemyDamage {
   enemy_id: uint32;
+  damage: float;
+}
+
+// Sent by the server to ONLY the targeted player (not broadcast), for a
+// SERVER-DRIVEN enemy_id (see C2S_EnemyRegister) that reached melee range
+// and its attack_cooldown elapsed -- the server decides if/when/how much
+// damage lands, but trusts the target's own client to actually apply it to
+// its local health (same trust tier C2S_AttackRequest's gun damage already
+// uses via S2C_AttackResult -- the server isn't the health authority for
+// players yet, just the hit-timing authority for server-driven enemies).
+// No C2S_ counterpart: this is never a reply to anything, the server's own
+// EnemyAI decides on its own tick when to send it. Only ever sent for
+// enemies registered via C2S_EnemyRegister -- client-claimed enemies
+// (Single map) still apply melee damage locally via overlap detection.
+table S2C_EnemyAttackResult {
+  enemy_id: uint32;
+  target_player_id: uint32;
   damage: float;
 }

@@ -50,6 +50,10 @@ struct S2C_EnemyDamage;
 struct S2C_EnemyDamageBuilder;
 struct S2C_EnemyDamageT;
 
+struct S2C_EnemyAttackResult;
+struct S2C_EnemyAttackResultBuilder;
+struct S2C_EnemyAttackResultT;
+
 struct C2S_EnemyClaimRequestT : public ::flatbuffers::NativeTable {
   typedef C2S_EnemyClaimRequest TableType;
   uint32_t enemy_id = 0;
@@ -117,6 +121,8 @@ struct C2S_EnemyRegisterT : public ::flatbuffers::NativeTable {
   float max_health = 0.0f;
   float move_speed = 0.0f;
   float attack_range = 0.0f;
+  float attack_damage = 0.0f;
+  float attack_cooldown = 0.0f;
   C2S_EnemyRegisterT() = default;
   C2S_EnemyRegisterT(const C2S_EnemyRegisterT &o);
   C2S_EnemyRegisterT(C2S_EnemyRegisterT&&) FLATBUFFERS_NOEXCEPT = default;
@@ -133,7 +139,9 @@ struct C2S_EnemyRegister FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
     VT_HEALTH = 8,
     VT_MAX_HEALTH = 10,
     VT_MOVE_SPEED = 12,
-    VT_ATTACK_RANGE = 14
+    VT_ATTACK_RANGE = 14,
+    VT_ATTACK_DAMAGE = 16,
+    VT_ATTACK_COOLDOWN = 18
   };
   uint32_t enemy_id() const {
     return GetField<uint32_t>(VT_ENEMY_ID, 0);
@@ -153,6 +161,12 @@ struct C2S_EnemyRegister FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
   float attack_range() const {
     return GetField<float>(VT_ATTACK_RANGE, 0.0f);
   }
+  float attack_damage() const {
+    return GetField<float>(VT_ATTACK_DAMAGE, 0.0f);
+  }
+  float attack_cooldown() const {
+    return GetField<float>(VT_ATTACK_COOLDOWN, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -162,6 +176,8 @@ struct C2S_EnemyRegister FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
            VerifyField<float>(verifier, VT_MAX_HEALTH, 4) &&
            VerifyField<float>(verifier, VT_MOVE_SPEED, 4) &&
            VerifyField<float>(verifier, VT_ATTACK_RANGE, 4) &&
+           VerifyField<float>(verifier, VT_ATTACK_DAMAGE, 4) &&
+           VerifyField<float>(verifier, VT_ATTACK_COOLDOWN, 4) &&
            verifier.EndTable();
   }
   C2S_EnemyRegisterT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -191,6 +207,12 @@ struct C2S_EnemyRegisterBuilder {
   void add_attack_range(float attack_range) {
     fbb_.AddElement<float>(C2S_EnemyRegister::VT_ATTACK_RANGE, attack_range, 0.0f);
   }
+  void add_attack_damage(float attack_damage) {
+    fbb_.AddElement<float>(C2S_EnemyRegister::VT_ATTACK_DAMAGE, attack_damage, 0.0f);
+  }
+  void add_attack_cooldown(float attack_cooldown) {
+    fbb_.AddElement<float>(C2S_EnemyRegister::VT_ATTACK_COOLDOWN, attack_cooldown, 0.0f);
+  }
   explicit C2S_EnemyRegisterBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -209,8 +231,12 @@ inline ::flatbuffers::Offset<C2S_EnemyRegister> CreateC2S_EnemyRegister(
     float health = 0.0f,
     float max_health = 0.0f,
     float move_speed = 0.0f,
-    float attack_range = 0.0f) {
+    float attack_range = 0.0f,
+    float attack_damage = 0.0f,
+    float attack_cooldown = 0.0f) {
   C2S_EnemyRegisterBuilder builder_(_fbb);
+  builder_.add_attack_cooldown(attack_cooldown);
+  builder_.add_attack_damage(attack_damage);
   builder_.add_attack_range(attack_range);
   builder_.add_move_speed(move_speed);
   builder_.add_max_health(max_health);
@@ -710,6 +736,87 @@ struct S2C_EnemyDamage::Traits {
 
 ::flatbuffers::Offset<S2C_EnemyDamage> CreateS2C_EnemyDamage(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyDamageT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct S2C_EnemyAttackResultT : public ::flatbuffers::NativeTable {
+  typedef S2C_EnemyAttackResult TableType;
+  uint32_t enemy_id = 0;
+  uint32_t target_player_id = 0;
+  float damage = 0.0f;
+};
+
+struct S2C_EnemyAttackResult FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_EnemyAttackResultT NativeTableType;
+  typedef S2C_EnemyAttackResultBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENEMY_ID = 4,
+    VT_TARGET_PLAYER_ID = 6,
+    VT_DAMAGE = 8
+  };
+  uint32_t enemy_id() const {
+    return GetField<uint32_t>(VT_ENEMY_ID, 0);
+  }
+  uint32_t target_player_id() const {
+    return GetField<uint32_t>(VT_TARGET_PLAYER_ID, 0);
+  }
+  float damage() const {
+    return GetField<float>(VT_DAMAGE, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ENEMY_ID, 4) &&
+           VerifyField<uint32_t>(verifier, VT_TARGET_PLAYER_ID, 4) &&
+           VerifyField<float>(verifier, VT_DAMAGE, 4) &&
+           verifier.EndTable();
+  }
+  S2C_EnemyAttackResultT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_EnemyAttackResultT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_EnemyAttackResult> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackResultT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_EnemyAttackResultBuilder {
+  typedef S2C_EnemyAttackResult Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_enemy_id(uint32_t enemy_id) {
+    fbb_.AddElement<uint32_t>(S2C_EnemyAttackResult::VT_ENEMY_ID, enemy_id, 0);
+  }
+  void add_target_player_id(uint32_t target_player_id) {
+    fbb_.AddElement<uint32_t>(S2C_EnemyAttackResult::VT_TARGET_PLAYER_ID, target_player_id, 0);
+  }
+  void add_damage(float damage) {
+    fbb_.AddElement<float>(S2C_EnemyAttackResult::VT_DAMAGE, damage, 0.0f);
+  }
+  explicit S2C_EnemyAttackResultBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_EnemyAttackResult> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_EnemyAttackResult>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_EnemyAttackResult> CreateS2C_EnemyAttackResult(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t enemy_id = 0,
+    uint32_t target_player_id = 0,
+    float damage = 0.0f) {
+  S2C_EnemyAttackResultBuilder builder_(_fbb);
+  builder_.add_damage(damage);
+  builder_.add_target_player_id(target_player_id);
+  builder_.add_enemy_id(enemy_id);
+  return builder_.Finish();
+}
+
+struct S2C_EnemyAttackResult::Traits {
+  using type = S2C_EnemyAttackResult;
+  static auto constexpr Create = CreateS2C_EnemyAttackResult;
+};
+
+::flatbuffers::Offset<S2C_EnemyAttackResult> CreateS2C_EnemyAttackResult(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackResultT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline C2S_EnemyClaimRequestT *C2S_EnemyClaimRequest::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<C2S_EnemyClaimRequestT>();
   UnPackTo(_o.get(), _resolver);
@@ -742,7 +849,9 @@ inline C2S_EnemyRegisterT::C2S_EnemyRegisterT(const C2S_EnemyRegisterT &o)
         health(o.health),
         max_health(o.max_health),
         move_speed(o.move_speed),
-        attack_range(o.attack_range) {
+        attack_range(o.attack_range),
+        attack_damage(o.attack_damage),
+        attack_cooldown(o.attack_cooldown) {
 }
 
 inline C2S_EnemyRegisterT &C2S_EnemyRegisterT::operator=(C2S_EnemyRegisterT o) FLATBUFFERS_NOEXCEPT {
@@ -752,6 +861,8 @@ inline C2S_EnemyRegisterT &C2S_EnemyRegisterT::operator=(C2S_EnemyRegisterT o) F
   std::swap(max_health, o.max_health);
   std::swap(move_speed, o.move_speed);
   std::swap(attack_range, o.attack_range);
+  std::swap(attack_damage, o.attack_damage);
+  std::swap(attack_cooldown, o.attack_cooldown);
   return *this;
 }
 
@@ -770,6 +881,8 @@ inline void C2S_EnemyRegister::UnPackTo(C2S_EnemyRegisterT *_o, const ::flatbuff
   { auto _e = max_health(); _o->max_health = _e; }
   { auto _e = move_speed(); _o->move_speed = _e; }
   { auto _e = attack_range(); _o->attack_range = _e; }
+  { auto _e = attack_damage(); _o->attack_damage = _e; }
+  { auto _e = attack_cooldown(); _o->attack_cooldown = _e; }
 }
 
 inline ::flatbuffers::Offset<C2S_EnemyRegister> CreateC2S_EnemyRegister(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_EnemyRegisterT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -786,6 +899,8 @@ inline ::flatbuffers::Offset<C2S_EnemyRegister> C2S_EnemyRegister::Pack(::flatbu
   auto _max_health = _o->max_health;
   auto _move_speed = _o->move_speed;
   auto _attack_range = _o->attack_range;
+  auto _attack_damage = _o->attack_damage;
+  auto _attack_cooldown = _o->attack_cooldown;
   return ProtoType::Net::CreateC2S_EnemyRegister(
       _fbb,
       _enemy_id,
@@ -793,7 +908,9 @@ inline ::flatbuffers::Offset<C2S_EnemyRegister> C2S_EnemyRegister::Pack(::flatbu
       _health,
       _max_health,
       _move_speed,
-      _attack_range);
+      _attack_range,
+      _attack_damage,
+      _attack_cooldown);
 }
 
 inline S2C_EnemyClaimResultT *S2C_EnemyClaimResult::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
@@ -1016,6 +1133,38 @@ inline ::flatbuffers::Offset<S2C_EnemyDamage> S2C_EnemyDamage::Pack(::flatbuffer
   return ProtoType::Net::CreateS2C_EnemyDamage(
       _fbb,
       _enemy_id,
+      _damage);
+}
+
+inline S2C_EnemyAttackResultT *S2C_EnemyAttackResult::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_EnemyAttackResultT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_EnemyAttackResult::UnPackTo(S2C_EnemyAttackResultT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = enemy_id(); _o->enemy_id = _e; }
+  { auto _e = target_player_id(); _o->target_player_id = _e; }
+  { auto _e = damage(); _o->damage = _e; }
+}
+
+inline ::flatbuffers::Offset<S2C_EnemyAttackResult> CreateS2C_EnemyAttackResult(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackResultT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_EnemyAttackResult::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_EnemyAttackResult> S2C_EnemyAttackResult::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_EnemyAttackResultT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_EnemyAttackResultT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _enemy_id = _o->enemy_id;
+  auto _target_player_id = _o->target_player_id;
+  auto _damage = _o->damage;
+  return ProtoType::Net::CreateS2C_EnemyAttackResult(
+      _fbb,
+      _enemy_id,
+      _target_player_id,
       _damage);
 }
 

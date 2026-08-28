@@ -687,6 +687,8 @@ namespace Wop
                 initial.maxHealth = req->max_health();
                 initial.moveSpeed = req->move_speed();
                 initial.attackRange = req->attack_range();
+                initial.attackDamage = req->attack_damage();
+                initial.attackCooldown = req->attack_cooldown();
                 server_.RegisterServerEnemy(req->enemy_id(), initial);
                 break;
             }

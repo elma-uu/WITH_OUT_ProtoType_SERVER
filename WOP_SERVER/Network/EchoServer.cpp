@@ -368,6 +368,17 @@ namespace Wop
         return result;
     }
 
+    const std::vector<InventoryItemRecord>& EchoServer::ClaimContainerLoot(
+        uint32_t containerId, std::vector<InventoryItemRecord> proposed)
+    {
+        std::lock_guard<std::mutex> guard(containerLootLock_);
+        // try_emplace only constructs/inserts `proposed` if containerId isn't
+        // already present -- if it is, the existing entry (an earlier
+        // client's roll) is left untouched and returned instead.
+        const auto [it, inserted] = containerLoot_.try_emplace(containerId, std::move(proposed));
+        return it->second;
+    }
+
     /*-------------------
      워커 스레드 루프 (IOCP 대기 → RIO 완료 드레인)
     -------------------*/

@@ -14,6 +14,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
              "Non-compatible flatbuffers version included");
 
 #include "common.h"
+#include "inventory.h"
 
 namespace ProtoType {
 namespace Net {
@@ -29,6 +30,14 @@ struct S2C_ItemUseResultT;
 struct S2C_ItemUseBroadcast;
 struct S2C_ItemUseBroadcastBuilder;
 struct S2C_ItemUseBroadcastT;
+
+struct C2S_ContainerLootRoll;
+struct C2S_ContainerLootRollBuilder;
+struct C2S_ContainerLootRollT;
+
+struct S2C_ContainerLootState;
+struct S2C_ContainerLootStateBuilder;
+struct S2C_ContainerLootStateT;
 
 enum class ItemUseType : int8_t {
   Consume = 0,
@@ -355,6 +364,180 @@ struct S2C_ItemUseBroadcast::Traits {
 
 ::flatbuffers::Offset<S2C_ItemUseBroadcast> CreateS2C_ItemUseBroadcast(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemUseBroadcastT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct C2S_ContainerLootRollT : public ::flatbuffers::NativeTable {
+  typedef C2S_ContainerLootRoll TableType;
+  uint32_t container_id = 0;
+  std::vector<std::unique_ptr<ProtoType::Net::InventoryItemEntryT>> items{};
+  C2S_ContainerLootRollT() = default;
+  C2S_ContainerLootRollT(const C2S_ContainerLootRollT &o);
+  C2S_ContainerLootRollT(C2S_ContainerLootRollT&&) FLATBUFFERS_NOEXCEPT = default;
+  C2S_ContainerLootRollT &operator=(C2S_ContainerLootRollT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct C2S_ContainerLootRoll FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_ContainerLootRollT NativeTableType;
+  typedef C2S_ContainerLootRollBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CONTAINER_ID = 4,
+    VT_ITEMS = 6
+  };
+  uint32_t container_id() const {
+    return GetField<uint32_t>(VT_CONTAINER_ID, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *items() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *>(VT_ITEMS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_CONTAINER_ID, 4) &&
+           VerifyOffset(verifier, VT_ITEMS) &&
+           verifier.VerifyVector(items()) &&
+           verifier.VerifyVectorOfTables(items()) &&
+           verifier.EndTable();
+  }
+  C2S_ContainerLootRollT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_ContainerLootRollT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_ContainerLootRoll> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_ContainerLootRollT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_ContainerLootRollBuilder {
+  typedef C2S_ContainerLootRoll Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_container_id(uint32_t container_id) {
+    fbb_.AddElement<uint32_t>(C2S_ContainerLootRoll::VT_CONTAINER_ID, container_id, 0);
+  }
+  void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> items) {
+    fbb_.AddOffset(C2S_ContainerLootRoll::VT_ITEMS, items);
+  }
+  explicit C2S_ContainerLootRollBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_ContainerLootRoll> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_ContainerLootRoll>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_ContainerLootRoll> CreateC2S_ContainerLootRoll(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t container_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> items = 0) {
+  C2S_ContainerLootRollBuilder builder_(_fbb);
+  builder_.add_items(items);
+  builder_.add_container_id(container_id);
+  return builder_.Finish();
+}
+
+struct C2S_ContainerLootRoll::Traits {
+  using type = C2S_ContainerLootRoll;
+  static auto constexpr Create = CreateC2S_ContainerLootRoll;
+};
+
+inline ::flatbuffers::Offset<C2S_ContainerLootRoll> CreateC2S_ContainerLootRollDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t container_id = 0,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *items = nullptr) {
+  auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>(*items) : 0;
+  return ProtoType::Net::CreateC2S_ContainerLootRoll(
+      _fbb,
+      container_id,
+      items__);
+}
+
+::flatbuffers::Offset<C2S_ContainerLootRoll> CreateC2S_ContainerLootRoll(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_ContainerLootRollT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct S2C_ContainerLootStateT : public ::flatbuffers::NativeTable {
+  typedef S2C_ContainerLootState TableType;
+  uint32_t container_id = 0;
+  std::vector<std::unique_ptr<ProtoType::Net::InventoryItemEntryT>> items{};
+  S2C_ContainerLootStateT() = default;
+  S2C_ContainerLootStateT(const S2C_ContainerLootStateT &o);
+  S2C_ContainerLootStateT(S2C_ContainerLootStateT&&) FLATBUFFERS_NOEXCEPT = default;
+  S2C_ContainerLootStateT &operator=(S2C_ContainerLootStateT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct S2C_ContainerLootState FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_ContainerLootStateT NativeTableType;
+  typedef S2C_ContainerLootStateBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CONTAINER_ID = 4,
+    VT_ITEMS = 6
+  };
+  uint32_t container_id() const {
+    return GetField<uint32_t>(VT_CONTAINER_ID, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *items() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *>(VT_ITEMS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_CONTAINER_ID, 4) &&
+           VerifyOffset(verifier, VT_ITEMS) &&
+           verifier.VerifyVector(items()) &&
+           verifier.VerifyVectorOfTables(items()) &&
+           verifier.EndTable();
+  }
+  S2C_ContainerLootStateT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_ContainerLootStateT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_ContainerLootState> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ContainerLootStateT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_ContainerLootStateBuilder {
+  typedef S2C_ContainerLootState Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_container_id(uint32_t container_id) {
+    fbb_.AddElement<uint32_t>(S2C_ContainerLootState::VT_CONTAINER_ID, container_id, 0);
+  }
+  void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> items) {
+    fbb_.AddOffset(S2C_ContainerLootState::VT_ITEMS, items);
+  }
+  explicit S2C_ContainerLootStateBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_ContainerLootState> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_ContainerLootState>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_ContainerLootState> CreateS2C_ContainerLootState(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t container_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> items = 0) {
+  S2C_ContainerLootStateBuilder builder_(_fbb);
+  builder_.add_items(items);
+  builder_.add_container_id(container_id);
+  return builder_.Finish();
+}
+
+struct S2C_ContainerLootState::Traits {
+  using type = S2C_ContainerLootState;
+  static auto constexpr Create = CreateS2C_ContainerLootState;
+};
+
+inline ::flatbuffers::Offset<S2C_ContainerLootState> CreateS2C_ContainerLootStateDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t container_id = 0,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *items = nullptr) {
+  auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>(*items) : 0;
+  return ProtoType::Net::CreateS2C_ContainerLootState(
+      _fbb,
+      container_id,
+      items__);
+}
+
+::flatbuffers::Offset<S2C_ContainerLootState> CreateS2C_ContainerLootState(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ContainerLootStateT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline C2S_ItemUseRequestT::C2S_ItemUseRequestT(const C2S_ItemUseRequestT &o)
       : header((o.header) ? new ProtoType::Net::Header(*o.header) : nullptr),
         item_instance_id(o.item_instance_id),
@@ -473,6 +656,88 @@ inline ::flatbuffers::Offset<S2C_ItemUseBroadcast> S2C_ItemUseBroadcast::Pack(::
       _user_id,
       _use_type,
       _slot);
+}
+
+inline C2S_ContainerLootRollT::C2S_ContainerLootRollT(const C2S_ContainerLootRollT &o)
+      : container_id(o.container_id) {
+  items.reserve(o.items.size());
+  for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::InventoryItemEntryT(*items_) : nullptr); }
+}
+
+inline C2S_ContainerLootRollT &C2S_ContainerLootRollT::operator=(C2S_ContainerLootRollT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(container_id, o.container_id);
+  std::swap(items, o.items);
+  return *this;
+}
+
+inline C2S_ContainerLootRollT *C2S_ContainerLootRoll::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_ContainerLootRollT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_ContainerLootRoll::UnPackTo(C2S_ContainerLootRollT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = container_id(); _o->container_id = _e; }
+  { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::InventoryItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<C2S_ContainerLootRoll> CreateC2S_ContainerLootRoll(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_ContainerLootRollT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_ContainerLootRoll::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_ContainerLootRoll> C2S_ContainerLootRoll::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_ContainerLootRollT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_ContainerLootRollT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _container_id = _o->container_id;
+  auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateInventoryItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return ProtoType::Net::CreateC2S_ContainerLootRoll(
+      _fbb,
+      _container_id,
+      _items);
+}
+
+inline S2C_ContainerLootStateT::S2C_ContainerLootStateT(const S2C_ContainerLootStateT &o)
+      : container_id(o.container_id) {
+  items.reserve(o.items.size());
+  for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::InventoryItemEntryT(*items_) : nullptr); }
+}
+
+inline S2C_ContainerLootStateT &S2C_ContainerLootStateT::operator=(S2C_ContainerLootStateT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(container_id, o.container_id);
+  std::swap(items, o.items);
+  return *this;
+}
+
+inline S2C_ContainerLootStateT *S2C_ContainerLootState::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_ContainerLootStateT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_ContainerLootState::UnPackTo(S2C_ContainerLootStateT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = container_id(); _o->container_id = _e; }
+  { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::InventoryItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<S2C_ContainerLootState> CreateS2C_ContainerLootState(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ContainerLootStateT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_ContainerLootState::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_ContainerLootState> S2C_ContainerLootState::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ContainerLootStateT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_ContainerLootStateT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _container_id = _o->container_id;
+  auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateInventoryItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return ProtoType::Net::CreateS2C_ContainerLootState(
+      _fbb,
+      _container_id,
+      _items);
 }
 
 }  // namespace Net

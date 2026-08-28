@@ -1,0 +1,26 @@
+include "common.fbs";
+
+namespace ProtoType.Net;
+
+// Sent periodically (throttled, same idea as C2S_MoveInput) by whichever
+// client owns an AI companion (ACompanionNPC), so its position/facing can
+// be mirrored on other players' screens too. There's no separate companion
+// login/session -- the server re-broadcasts this tagged with the SENDING
+// session's own id (see S2C_CompanionMoveState.owner_id), the same
+// "server, not client, decides whose this is" rule C2S_MoveInput already
+// follows for player movement.
+table C2S_CompanionMoveInput {
+  position: Vec3;
+  look: Rotator;
+}
+
+// Broadcast to every other connected client. owner_id identifies which
+// PLAYER's companion this is -- it is not a player_id of its own, since the
+// companion has no login/session. Receivers should spawn/update a
+// remote-companion placeholder for that owner, and despawn it when that
+// owner sends S2C_PlayerLeft (a player's companion can't outlive them).
+table S2C_CompanionMoveState {
+  owner_id: uint32;
+  position: Vec3;
+  look: Rotator;
+}

@@ -14,6 +14,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
              "Non-compatible flatbuffers version included");
 
 #include "attack.h"
+#include "companion.h"
 #include "interact.h"
 #include "inventory.h"
 #include "item.h"
@@ -48,11 +49,15 @@ enum class Payload : uint8_t {
   S2C_InteractResult = 16,
   C2S_SaveInventory = 17,
   C2S_SetVisible = 18,
+  C2S_ContainerLootRoll = 19,
+  S2C_ContainerLootState = 20,
+  C2S_CompanionMoveInput = 21,
+  S2C_CompanionMoveState = 22,
   MIN = NONE,
-  MAX = C2S_SetVisible
+  MAX = S2C_CompanionMoveState
 };
 
-inline const Payload (&EnumValuesPayload())[19] {
+inline const Payload (&EnumValuesPayload())[23] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -72,13 +77,17 @@ inline const Payload (&EnumValuesPayload())[19] {
     Payload::C2S_InteractRequest,
     Payload::S2C_InteractResult,
     Payload::C2S_SaveInventory,
-    Payload::C2S_SetVisible
+    Payload::C2S_SetVisible,
+    Payload::C2S_ContainerLootRoll,
+    Payload::S2C_ContainerLootState,
+    Payload::C2S_CompanionMoveInput,
+    Payload::S2C_CompanionMoveState
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[20] = {
+  static const char * const names[24] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -98,13 +107,17 @@ inline const char * const *EnumNamesPayload() {
     "S2C_InteractResult",
     "C2S_SaveInventory",
     "C2S_SetVisible",
+    "C2S_ContainerLootRoll",
+    "S2C_ContainerLootState",
+    "C2S_CompanionMoveInput",
+    "S2C_CompanionMoveState",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::C2S_SetVisible)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_CompanionMoveState)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -185,6 +198,22 @@ template<> struct PayloadTraits<ProtoType::Net::C2S_SetVisible> {
   static const Payload enum_value = Payload::C2S_SetVisible;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_ContainerLootRoll> {
+  static const Payload enum_value = Payload::C2S_ContainerLootRoll;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_ContainerLootState> {
+  static const Payload enum_value = Payload::S2C_ContainerLootState;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::C2S_CompanionMoveInput> {
+  static const Payload enum_value = Payload::C2S_CompanionMoveInput;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_CompanionMoveState> {
+  static const Payload enum_value = Payload::S2C_CompanionMoveState;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -259,6 +288,22 @@ template<> struct PayloadUnionTraits<ProtoType::Net::C2S_SaveInventoryT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::C2S_SetVisibleT> {
   static const Payload enum_value = Payload::C2S_SetVisible;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_ContainerLootRollT> {
+  static const Payload enum_value = Payload::C2S_ContainerLootRoll;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_ContainerLootStateT> {
+  static const Payload enum_value = Payload::S2C_ContainerLootState;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_CompanionMoveInputT> {
+  static const Payload enum_value = Payload::C2S_CompanionMoveInput;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_CompanionMoveStateT> {
+  static const Payload enum_value = Payload::S2C_CompanionMoveState;
 };
 
 struct PayloadUnion {
@@ -435,6 +480,38 @@ struct PayloadUnion {
     return type == Payload::C2S_SetVisible ?
       reinterpret_cast<const ProtoType::Net::C2S_SetVisibleT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_ContainerLootRollT *AsC2S_ContainerLootRoll() {
+    return type == Payload::C2S_ContainerLootRoll ?
+      reinterpret_cast<ProtoType::Net::C2S_ContainerLootRollT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_ContainerLootRollT *AsC2S_ContainerLootRoll() const {
+    return type == Payload::C2S_ContainerLootRoll ?
+      reinterpret_cast<const ProtoType::Net::C2S_ContainerLootRollT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_ContainerLootStateT *AsS2C_ContainerLootState() {
+    return type == Payload::S2C_ContainerLootState ?
+      reinterpret_cast<ProtoType::Net::S2C_ContainerLootStateT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_ContainerLootStateT *AsS2C_ContainerLootState() const {
+    return type == Payload::S2C_ContainerLootState ?
+      reinterpret_cast<const ProtoType::Net::S2C_ContainerLootStateT *>(value) : nullptr;
+  }
+  ProtoType::Net::C2S_CompanionMoveInputT *AsC2S_CompanionMoveInput() {
+    return type == Payload::C2S_CompanionMoveInput ?
+      reinterpret_cast<ProtoType::Net::C2S_CompanionMoveInputT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_CompanionMoveInputT *AsC2S_CompanionMoveInput() const {
+    return type == Payload::C2S_CompanionMoveInput ?
+      reinterpret_cast<const ProtoType::Net::C2S_CompanionMoveInputT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_CompanionMoveStateT *AsS2C_CompanionMoveState() {
+    return type == Payload::S2C_CompanionMoveState ?
+      reinterpret_cast<ProtoType::Net::S2C_CompanionMoveStateT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_CompanionMoveStateT *AsS2C_CompanionMoveState() const {
+    return type == Payload::S2C_CompanionMoveState ?
+      reinterpret_cast<const ProtoType::Net::S2C_CompanionMoveStateT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -515,6 +592,18 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::C2S_SetVisible *payload_as_C2S_SetVisible() const {
     return payload_type() == ProtoType::Net::Payload::C2S_SetVisible ? static_cast<const ProtoType::Net::C2S_SetVisible *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_ContainerLootRoll *payload_as_C2S_ContainerLootRoll() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_ContainerLootRoll ? static_cast<const ProtoType::Net::C2S_ContainerLootRoll *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_ContainerLootState *payload_as_S2C_ContainerLootState() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_ContainerLootState ? static_cast<const ProtoType::Net::S2C_ContainerLootState *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_CompanionMoveInput *payload_as_C2S_CompanionMoveInput() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_CompanionMoveInput ? static_cast<const ProtoType::Net::C2S_CompanionMoveInput *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_CompanionMoveState *payload_as_S2C_CompanionMoveState() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_CompanionMoveState ? static_cast<const ProtoType::Net::S2C_CompanionMoveState *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -599,6 +688,22 @@ template<> inline const ProtoType::Net::C2S_SaveInventory *Packet::payload_as<Pr
 
 template<> inline const ProtoType::Net::C2S_SetVisible *Packet::payload_as<ProtoType::Net::C2S_SetVisible>() const {
   return payload_as_C2S_SetVisible();
+}
+
+template<> inline const ProtoType::Net::C2S_ContainerLootRoll *Packet::payload_as<ProtoType::Net::C2S_ContainerLootRoll>() const {
+  return payload_as_C2S_ContainerLootRoll();
+}
+
+template<> inline const ProtoType::Net::S2C_ContainerLootState *Packet::payload_as<ProtoType::Net::S2C_ContainerLootState>() const {
+  return payload_as_S2C_ContainerLootState();
+}
+
+template<> inline const ProtoType::Net::C2S_CompanionMoveInput *Packet::payload_as<ProtoType::Net::C2S_CompanionMoveInput>() const {
+  return payload_as_C2S_CompanionMoveInput();
+}
+
+template<> inline const ProtoType::Net::S2C_CompanionMoveState *Packet::payload_as<ProtoType::Net::S2C_CompanionMoveState>() const {
+  return payload_as_S2C_CompanionMoveState();
 }
 
 struct PacketBuilder {
@@ -746,6 +851,22 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SetVisible *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_ContainerLootRoll: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_ContainerLootRoll *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_ContainerLootState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ContainerLootState *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::C2S_CompanionMoveInput: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_CompanionMoveInput *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_CompanionMoveState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_CompanionMoveState *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -838,6 +959,22 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SetVisible *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_ContainerLootRoll: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_ContainerLootRoll *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_ContainerLootState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ContainerLootState *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::C2S_CompanionMoveInput: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_CompanionMoveInput *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_CompanionMoveState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_CompanionMoveState *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -917,6 +1054,22 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SetVisibleT *>(value);
       return CreateC2S_SetVisible(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_ContainerLootRoll: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_ContainerLootRollT *>(value);
+      return CreateC2S_ContainerLootRoll(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_ContainerLootState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ContainerLootStateT *>(value);
+      return CreateS2C_ContainerLootState(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::C2S_CompanionMoveInput: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_CompanionMoveInputT *>(value);
+      return CreateC2S_CompanionMoveInput(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_CompanionMoveState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_CompanionMoveStateT *>(value);
+      return CreateS2C_CompanionMoveState(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -993,6 +1146,22 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::C2S_SetVisible: {
       value = new ProtoType::Net::C2S_SetVisibleT(*reinterpret_cast<ProtoType::Net::C2S_SetVisibleT *>(u.value));
+      break;
+    }
+    case Payload::C2S_ContainerLootRoll: {
+      value = new ProtoType::Net::C2S_ContainerLootRollT(*reinterpret_cast<ProtoType::Net::C2S_ContainerLootRollT *>(u.value));
+      break;
+    }
+    case Payload::S2C_ContainerLootState: {
+      value = new ProtoType::Net::S2C_ContainerLootStateT(*reinterpret_cast<ProtoType::Net::S2C_ContainerLootStateT *>(u.value));
+      break;
+    }
+    case Payload::C2S_CompanionMoveInput: {
+      value = new ProtoType::Net::C2S_CompanionMoveInputT(*reinterpret_cast<ProtoType::Net::C2S_CompanionMoveInputT *>(u.value));
+      break;
+    }
+    case Payload::S2C_CompanionMoveState: {
+      value = new ProtoType::Net::S2C_CompanionMoveStateT(*reinterpret_cast<ProtoType::Net::S2C_CompanionMoveStateT *>(u.value));
       break;
     }
     default:
@@ -1089,6 +1258,26 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::C2S_SetVisible: {
       auto ptr = reinterpret_cast<ProtoType::Net::C2S_SetVisibleT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_ContainerLootRoll: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_ContainerLootRollT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_ContainerLootState: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_ContainerLootStateT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_CompanionMoveInput: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_CompanionMoveInputT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_CompanionMoveState: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_CompanionMoveStateT *>(value);
       delete ptr;
       break;
     }

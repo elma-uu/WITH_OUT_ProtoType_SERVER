@@ -5,6 +5,7 @@ include "attack.fbs";
 include "item.fbs";
 include "interact.fbs";
 include "inventory.fbs";
+include "companion.fbs";
 
 namespace ProtoType.Net;
 
@@ -27,6 +28,10 @@ union Payload {
   S2C_InteractResult,
   C2S_SaveInventory,
   C2S_SetVisible,
+  C2S_ContainerLootRoll,
+  S2C_ContainerLootState,
+  C2S_CompanionMoveInput,
+  S2C_CompanionMoveState,
 }
 
 table Packet {

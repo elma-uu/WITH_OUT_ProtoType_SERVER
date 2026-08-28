@@ -1,4 +1,5 @@
 include "common.fbs";
+include "inventory.fbs";
 
 namespace ProtoType.Net;
 
@@ -36,4 +37,25 @@ table S2C_ItemUseBroadcast {
   user_id: uint32;
   use_type: ItemUseType;
   slot: ubyte;
+}
+
+// Reported by a client the first time it BeginPlays into a placed
+// ALootContainer this session, carrying whatever random roll it generated
+// locally for that container's contents (see ALootContainer::SeedContents).
+// The server keeps only the first roll it sees per container_id (see
+// EchoServer::ClaimContainerLoot) and echoes that back to EVERY connected
+// client -- including the reporter -- as the one true answer, so nobody
+// ends up seeing different contents in the same box. container_id is a
+// hash of the placed actor's stable in-level name, not something the
+// server assigns; see AItemContainerBase::GetContainerId.
+table C2S_ContainerLootRoll {
+  container_id: uint32;
+  items: [InventoryItemEntry];
+}
+
+// The authoritative contents for container_id -- either the reporting
+// client's own roll (if it was first) or whatever was already stored.
+table S2C_ContainerLootState {
+  container_id: uint32;
+  items: [InventoryItemEntry];
 }

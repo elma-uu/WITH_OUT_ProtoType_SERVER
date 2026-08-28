@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "NetCommon.h"
 #include "Session.h"
+#include "Database.h"
 #include <atomic>
 #include <mutex>
 #include <thread>
@@ -36,6 +37,22 @@ namespace Wop
         // Snapshot of every currently-connected session other than
         // `excludeSessionId`, for building a "who's already here" roster.
         std::vector<std::shared_ptr<Session>> SnapshotOtherSessions(uint32_t excludeSessionId);
+
+        /*-------------------
+         월드 아이템 상태 (컨테이너 루팅 동기화)
+        -------------------*/
+        // World state, not per-session state: every placed ALootContainer
+        // rolls its own contents locally and reports them here the first
+        // time a client's local instance sees them this server run. The
+        // FIRST roll for a given containerId wins and is returned to every
+        // caller (this one and every later one) from then on -- see
+        // Session.cpp's C2S_ContainerLootRoll case, which broadcasts
+        // whatever this returns back out as S2C_ContainerLootState so every
+        // client ends up agreeing on the same contents instead of each
+        // independently re-rolling. Lives for the server process's lifetime
+        // (not persisted to the DB -- these are stage props, not player-owned).
+        const std::vector<InventoryItemRecord>& ClaimContainerLoot(
+            uint32_t containerId, std::vector<InventoryItemRecord> proposed);
 
     private:
         static constexpr ULONG kCompletionQueueSize = 8192;
@@ -86,5 +103,8 @@ namespace Wop
         std::mutex sessionsLock_;
         std::unordered_map<uint32_t, std::shared_ptr<Session>> sessions_;
         std::atomic<uint32_t> nextSessionId_{1};
+
+        std::mutex containerLootLock_;
+        std::unordered_map<uint32_t, std::vector<InventoryItemRecord>> containerLoot_;
     };
 }

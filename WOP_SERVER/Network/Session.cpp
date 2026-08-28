@@ -80,6 +80,12 @@ namespace
                     return req->visible() ? "become visible" : "become invisible";
                 return "set visible";
 
+            case Payload::C2S_ContainerLootRoll:
+                return "container loot roll";
+
+            case Payload::C2S_CompanionMoveInput:
+                return "companion move";
+
             default:
                 return EnumNamePayload(packet->payload_type());
         }
@@ -505,6 +511,78 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_ContainerLootRoll:
+            {
+                const auto* req = packet->payload_as_C2S_ContainerLootRoll();
+                if (!req)
+                    break;
+
+                std::vector<InventoryItemRecord> proposed;
+                if (req->items())
+                {
+                    proposed.reserve(req->items()->size());
+                    for (const auto* entry : *req->items())
+                    {
+                        if (!entry || !entry->item_id())
+                            continue;
+                        InventoryItemRecord record;
+                        record.itemId = entry->item_id()->str();
+                        record.gridX = entry->grid_x();
+                        record.gridY = entry->grid_y();
+                        record.rotated = entry->rotated();
+                        record.stackCount = entry->stack_count();
+                        proposed.push_back(std::move(record));
+                    }
+                }
+
+                // First roll for this container_id wins; everyone (including
+                // this sender, whose own roll may just have been rejected in
+                // favor of an earlier one) gets told the same answer.
+                const std::vector<InventoryItemRecord>& authoritative =
+                    server_.ClaimContainerLoot(req->container_id(), std::move(proposed));
+
+                flatbuffers::FlatBufferBuilder fbb;
+                std::vector<flatbuffers::Offset<InventoryItemEntry>> itemOffsets;
+                itemOffsets.reserve(authoritative.size());
+                for (const auto& item : authoritative)
+                {
+                    auto itemIdOffset = fbb.CreateString(item.itemId);
+                    itemOffsets.push_back(CreateInventoryItemEntry(
+                        fbb, itemIdOffset, item.gridX, item.gridY, item.rotated, item.stackCount));
+                }
+                auto itemsVector = fbb.CreateVector(itemOffsets);
+                auto state = CreateS2C_ContainerLootState(fbb, req->container_id(), itemsVector);
+                auto reply = CreatePacket(fbb, Payload::S2C_ContainerLootState, state.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+
+                EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                            static_cast<uint32_t>(fbb.GetSize()));
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            case Payload::C2S_CompanionMoveInput:
+            {
+                const auto* req = packet->payload_as_C2S_CompanionMoveInput();
+                if (!req)
+                    break;
+
+                // No separate companion login/session -- owner_id is this
+                // session's own id_, the same "server decides, not the
+                // client" rule C2S_MoveInput follows for player_id.
+                const Vec3 position = req->position() ? *req->position() : Vec3(0.0f, 0.0f, 0.0f);
+                const Rotator look = req->look() ? *req->look() : Rotator(0.0f, 0.0f, 0.0f);
+
+                flatbuffers::FlatBufferBuilder fbb;
+                auto state = CreateS2C_CompanionMoveState(fbb, id_, &position, &look);
+                auto reply = CreatePacket(fbb, Payload::S2C_CompanionMoveState, state.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
             default:
                 break;
         }
@@ -619,7 +697,9 @@ namespace Wop
                 (type == ProtoType::Net::Payload::C2S_Login ||
                  type == ProtoType::Net::Payload::C2S_MoveInput ||
                  type == ProtoType::Net::Payload::C2S_SaveInventory ||
-                 type == ProtoType::Net::Payload::C2S_SetVisible);
+                 type == ProtoType::Net::Payload::C2S_SetVisible ||
+                 type == ProtoType::Net::Payload::C2S_ContainerLootRoll ||
+                 type == ProtoType::Net::Payload::C2S_CompanionMoveInput);
             if (!skipSelfEcho)
                 EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

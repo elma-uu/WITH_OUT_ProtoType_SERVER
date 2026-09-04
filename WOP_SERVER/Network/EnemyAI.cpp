@@ -47,6 +47,38 @@ namespace Wop
         std::lock_guard<std::mutex> guard(lock_);
         result.stateUpdates.reserve(enemies_.size());
 
+        // Resolves which player (index into `players`) a record should
+        // chase: its forced target if one is set and still connected (see
+        // FEnemyAiRecord::forcedTargetSessionId), else whichever is
+        // nearest (2D distance). Only called with a non-empty `players`.
+        auto resolveTargetIdx = [&](const FEnemyAiRecord& rec) -> size_t
+        {
+            if (rec.forcedTargetSessionId != 0)
+            {
+                for (size_t i = 0; i < players.size(); ++i)
+                {
+                    if (players[i].sessionId == rec.forcedTargetSessionId)
+                        return i;
+                }
+                // Forced target disconnected -- fall through to nearest.
+            }
+
+            size_t nearestIdx = 0;
+            float nearestDistSq = std::numeric_limits<float>::max();
+            for (size_t i = 0; i < players.size(); ++i)
+            {
+                const float dx = players[i].x - rec.posX;
+                const float dy = players[i].y - rec.posY;
+                const float distSq = dx * dx + dy * dy;
+                if (distSq < nearestDistSq)
+                {
+                    nearestDistSq = distSq;
+                    nearestIdx = i;
+                }
+            }
+            return nearestIdx;
+        };
+
         for (auto& [enemyId, record] : enemies_)
         {
             if (record.isDead || players.empty())
@@ -55,22 +87,10 @@ namespace Wop
                 continue;
             }
 
-            // Nearest player, 2D distance (height doesn't matter for chasing).
-            size_t nearestIdx = 0;
-            float nearestDistSq = std::numeric_limits<float>::max();
-            for (size_t i = 0; i < players.size(); ++i)
-            {
-                const float dx = players[i].x - record.posX;
-                const float dy = players[i].y - record.posY;
-                const float distSq = dx * dx + dy * dy;
-                if (distSq < nearestDistSq)
-                {
-                    nearestDistSq = distSq;
-                    nearestIdx = i;
-                }
-            }
-
-            const float nearestDist = std::sqrt(nearestDistSq);
+            const size_t targetIdx = resolveTargetIdx(record);
+            const float targetDx = players[targetIdx].x - record.posX;
+            const float targetDy = players[targetIdx].y - record.posY;
+            const float nearestDist = std::sqrt(targetDx * targetDx + targetDy * targetDy);
 
             if (nearestDist > record.attackRange)
             {
@@ -79,8 +99,8 @@ namespace Wop
                 // walking away and back doesn't buy an instant free hit,
                 // but it doesn't get punished either, whatever was left
                 // just resumes.
-                const float targetX = players[nearestIdx].x;
-                const float targetY = players[nearestIdx].y;
+                const float targetX = players[targetIdx].x;
+                const float targetY = players[targetIdx].y;
 
                 float dirX = (targetX - record.posX) / std::max(nearestDist, 0.0001f);
                 float dirY = (targetY - record.posY) / std::max(nearestDist, 0.0001f);
@@ -136,7 +156,35 @@ namespace Wop
                 if (record.attackCooldownRemaining <= 0.0f)
                 {
                     record.attackCooldownRemaining = record.attackCooldown;
-                    result.attackEvents.push_back({ enemyId, players[nearestIdx].sessionId, record.attackDamage });
+                    result.attackEvents.push_back({ enemyId, players[targetIdx].sessionId, record.attackDamage });
+                }
+
+                // Caller-type, engaged with its own target -- periodically
+                // forces nearby not-yet-forced enemies onto that same
+                // target (mirrors AEnemyCaller::DoCall; see this class's
+                // header comment for why the client-local version never
+                // runs for a server-driven enemy).
+                if (record.isCaller)
+                {
+                    record.callCooldownRemaining -= deltaSeconds;
+                    if (record.callCooldownRemaining <= 0.0f)
+                    {
+                        record.callCooldownRemaining = record.callCooldown;
+                        const uint32_t forcedSessionId = players[targetIdx].sessionId;
+
+                        for (auto& [otherId, otherRecord] : enemies_)
+                        {
+                            if (otherId == enemyId || otherRecord.isDead || otherRecord.forcedTargetSessionId != 0)
+                                continue;
+
+                            const float cdx = otherRecord.posX - record.posX;
+                            const float cdy = otherRecord.posY - record.posY;
+                            if (cdx * cdx + cdy * cdy <= record.callRadius * record.callRadius)
+                            {
+                                otherRecord.forcedTargetSessionId = forcedSessionId;
+                            }
+                        }
+                    }
                 }
             }
 

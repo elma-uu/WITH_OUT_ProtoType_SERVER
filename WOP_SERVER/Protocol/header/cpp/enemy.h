@@ -127,6 +127,9 @@ struct C2S_EnemyRegisterT : public ::flatbuffers::NativeTable {
   float attack_range = 0.0f;
   float attack_damage = 0.0f;
   float attack_cooldown = 0.0f;
+  bool is_caller = false;
+  float call_radius = 0.0f;
+  float call_cooldown = 0.0f;
   C2S_EnemyRegisterT() = default;
   C2S_EnemyRegisterT(const C2S_EnemyRegisterT &o);
   C2S_EnemyRegisterT(C2S_EnemyRegisterT&&) FLATBUFFERS_NOEXCEPT = default;
@@ -145,7 +148,10 @@ struct C2S_EnemyRegister FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
     VT_MOVE_SPEED = 12,
     VT_ATTACK_RANGE = 14,
     VT_ATTACK_DAMAGE = 16,
-    VT_ATTACK_COOLDOWN = 18
+    VT_ATTACK_COOLDOWN = 18,
+    VT_IS_CALLER = 20,
+    VT_CALL_RADIUS = 22,
+    VT_CALL_COOLDOWN = 24
   };
   uint32_t enemy_id() const {
     return GetField<uint32_t>(VT_ENEMY_ID, 0);
@@ -171,6 +177,15 @@ struct C2S_EnemyRegister FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
   float attack_cooldown() const {
     return GetField<float>(VT_ATTACK_COOLDOWN, 0.0f);
   }
+  bool is_caller() const {
+    return GetField<uint8_t>(VT_IS_CALLER, 0) != 0;
+  }
+  float call_radius() const {
+    return GetField<float>(VT_CALL_RADIUS, 0.0f);
+  }
+  float call_cooldown() const {
+    return GetField<float>(VT_CALL_COOLDOWN, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -182,6 +197,9 @@ struct C2S_EnemyRegister FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
            VerifyField<float>(verifier, VT_ATTACK_RANGE, 4) &&
            VerifyField<float>(verifier, VT_ATTACK_DAMAGE, 4) &&
            VerifyField<float>(verifier, VT_ATTACK_COOLDOWN, 4) &&
+           VerifyField<uint8_t>(verifier, VT_IS_CALLER, 1) &&
+           VerifyField<float>(verifier, VT_CALL_RADIUS, 4) &&
+           VerifyField<float>(verifier, VT_CALL_COOLDOWN, 4) &&
            verifier.EndTable();
   }
   C2S_EnemyRegisterT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -217,6 +235,15 @@ struct C2S_EnemyRegisterBuilder {
   void add_attack_cooldown(float attack_cooldown) {
     fbb_.AddElement<float>(C2S_EnemyRegister::VT_ATTACK_COOLDOWN, attack_cooldown, 0.0f);
   }
+  void add_is_caller(bool is_caller) {
+    fbb_.AddElement<uint8_t>(C2S_EnemyRegister::VT_IS_CALLER, static_cast<uint8_t>(is_caller), 0);
+  }
+  void add_call_radius(float call_radius) {
+    fbb_.AddElement<float>(C2S_EnemyRegister::VT_CALL_RADIUS, call_radius, 0.0f);
+  }
+  void add_call_cooldown(float call_cooldown) {
+    fbb_.AddElement<float>(C2S_EnemyRegister::VT_CALL_COOLDOWN, call_cooldown, 0.0f);
+  }
   explicit C2S_EnemyRegisterBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -237,8 +264,13 @@ inline ::flatbuffers::Offset<C2S_EnemyRegister> CreateC2S_EnemyRegister(
     float move_speed = 0.0f,
     float attack_range = 0.0f,
     float attack_damage = 0.0f,
-    float attack_cooldown = 0.0f) {
+    float attack_cooldown = 0.0f,
+    bool is_caller = false,
+    float call_radius = 0.0f,
+    float call_cooldown = 0.0f) {
   C2S_EnemyRegisterBuilder builder_(_fbb);
+  builder_.add_call_cooldown(call_cooldown);
+  builder_.add_call_radius(call_radius);
   builder_.add_attack_cooldown(attack_cooldown);
   builder_.add_attack_damage(attack_damage);
   builder_.add_attack_range(attack_range);
@@ -247,6 +279,7 @@ inline ::flatbuffers::Offset<C2S_EnemyRegister> CreateC2S_EnemyRegister(
   builder_.add_health(health);
   builder_.add_position(position);
   builder_.add_enemy_id(enemy_id);
+  builder_.add_is_caller(is_caller);
   return builder_.Finish();
 }
 
@@ -914,7 +947,10 @@ inline C2S_EnemyRegisterT::C2S_EnemyRegisterT(const C2S_EnemyRegisterT &o)
         move_speed(o.move_speed),
         attack_range(o.attack_range),
         attack_damage(o.attack_damage),
-        attack_cooldown(o.attack_cooldown) {
+        attack_cooldown(o.attack_cooldown),
+        is_caller(o.is_caller),
+        call_radius(o.call_radius),
+        call_cooldown(o.call_cooldown) {
 }
 
 inline C2S_EnemyRegisterT &C2S_EnemyRegisterT::operator=(C2S_EnemyRegisterT o) FLATBUFFERS_NOEXCEPT {
@@ -926,6 +962,9 @@ inline C2S_EnemyRegisterT &C2S_EnemyRegisterT::operator=(C2S_EnemyRegisterT o) F
   std::swap(attack_range, o.attack_range);
   std::swap(attack_damage, o.attack_damage);
   std::swap(attack_cooldown, o.attack_cooldown);
+  std::swap(is_caller, o.is_caller);
+  std::swap(call_radius, o.call_radius);
+  std::swap(call_cooldown, o.call_cooldown);
   return *this;
 }
 
@@ -946,6 +985,9 @@ inline void C2S_EnemyRegister::UnPackTo(C2S_EnemyRegisterT *_o, const ::flatbuff
   { auto _e = attack_range(); _o->attack_range = _e; }
   { auto _e = attack_damage(); _o->attack_damage = _e; }
   { auto _e = attack_cooldown(); _o->attack_cooldown = _e; }
+  { auto _e = is_caller(); _o->is_caller = _e; }
+  { auto _e = call_radius(); _o->call_radius = _e; }
+  { auto _e = call_cooldown(); _o->call_cooldown = _e; }
 }
 
 inline ::flatbuffers::Offset<C2S_EnemyRegister> CreateC2S_EnemyRegister(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_EnemyRegisterT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -964,6 +1006,9 @@ inline ::flatbuffers::Offset<C2S_EnemyRegister> C2S_EnemyRegister::Pack(::flatbu
   auto _attack_range = _o->attack_range;
   auto _attack_damage = _o->attack_damage;
   auto _attack_cooldown = _o->attack_cooldown;
+  auto _is_caller = _o->is_caller;
+  auto _call_radius = _o->call_radius;
+  auto _call_cooldown = _o->call_cooldown;
   return ProtoType::Net::CreateC2S_EnemyRegister(
       _fbb,
       _enemy_id,
@@ -973,7 +1018,10 @@ inline ::flatbuffers::Offset<C2S_EnemyRegister> C2S_EnemyRegister::Pack(::flatbu
       _move_speed,
       _attack_range,
       _attack_damage,
-      _attack_cooldown);
+      _attack_cooldown,
+      _is_caller,
+      _call_radius,
+      _call_cooldown);
 }
 
 inline S2C_EnemyClaimResultT *S2C_EnemyClaimResult::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {

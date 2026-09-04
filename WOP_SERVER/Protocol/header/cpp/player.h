@@ -38,6 +38,14 @@ struct C2S_SetVisible;
 struct C2S_SetVisibleBuilder;
 struct C2S_SetVisibleT;
 
+struct C2S_PlayerDied;
+struct C2S_PlayerDiedBuilder;
+struct C2S_PlayerDiedT;
+
+struct S2C_PlayerDied;
+struct S2C_PlayerDiedBuilder;
+struct S2C_PlayerDiedT;
+
 enum class EquipSlot : int8_t {
   Head = 0,
   Chest = 1,
@@ -598,6 +606,111 @@ struct C2S_SetVisible::Traits {
 
 ::flatbuffers::Offset<C2S_SetVisible> CreateC2S_SetVisible(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SetVisibleT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct C2S_PlayerDiedT : public ::flatbuffers::NativeTable {
+  typedef C2S_PlayerDied TableType;
+};
+
+struct C2S_PlayerDied FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_PlayerDiedT NativeTableType;
+  typedef C2S_PlayerDiedBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+  C2S_PlayerDiedT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_PlayerDiedT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_PlayerDied> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_PlayerDiedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_PlayerDiedBuilder {
+  typedef C2S_PlayerDied Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit C2S_PlayerDiedBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_PlayerDied> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_PlayerDied>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_PlayerDied> CreateC2S_PlayerDied(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  C2S_PlayerDiedBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct C2S_PlayerDied::Traits {
+  using type = C2S_PlayerDied;
+  static auto constexpr Create = CreateC2S_PlayerDied;
+};
+
+::flatbuffers::Offset<C2S_PlayerDied> CreateC2S_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct S2C_PlayerDiedT : public ::flatbuffers::NativeTable {
+  typedef S2C_PlayerDied TableType;
+  uint32_t player_id = 0;
+};
+
+struct S2C_PlayerDied FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_PlayerDiedT NativeTableType;
+  typedef S2C_PlayerDiedBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PLAYER_ID = 4
+  };
+  uint32_t player_id() const {
+    return GetField<uint32_t>(VT_PLAYER_ID, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_PLAYER_ID, 4) &&
+           verifier.EndTable();
+  }
+  S2C_PlayerDiedT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_PlayerDiedT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_PlayerDied> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerDiedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_PlayerDiedBuilder {
+  typedef S2C_PlayerDied Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_player_id(uint32_t player_id) {
+    fbb_.AddElement<uint32_t>(S2C_PlayerDied::VT_PLAYER_ID, player_id, 0);
+  }
+  explicit S2C_PlayerDiedBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_PlayerDied> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_PlayerDied>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDied(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t player_id = 0) {
+  S2C_PlayerDiedBuilder builder_(_fbb);
+  builder_.add_player_id(player_id);
+  return builder_.Finish();
+}
+
+struct S2C_PlayerDied::Traits {
+  using type = S2C_PlayerDied;
+  static auto constexpr Create = CreateS2C_PlayerDied;
+};
+
+::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline EquippedVisualT *EquippedVisual::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<EquippedVisualT>();
   UnPackTo(_o.get(), _resolver);
@@ -814,6 +927,55 @@ inline ::flatbuffers::Offset<C2S_SetVisible> C2S_SetVisible::Pack(::flatbuffers:
   return ProtoType::Net::CreateC2S_SetVisible(
       _fbb,
       _visible);
+}
+
+inline C2S_PlayerDiedT *C2S_PlayerDied::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_PlayerDiedT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_PlayerDied::UnPackTo(C2S_PlayerDiedT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+}
+
+inline ::flatbuffers::Offset<C2S_PlayerDied> CreateC2S_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_PlayerDied::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_PlayerDied> C2S_PlayerDied::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_PlayerDiedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_PlayerDiedT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  return ProtoType::Net::CreateC2S_PlayerDied(
+      _fbb);
+}
+
+inline S2C_PlayerDiedT *S2C_PlayerDied::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_PlayerDiedT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_PlayerDied::UnPackTo(S2C_PlayerDiedT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = player_id(); _o->player_id = _e; }
+}
+
+inline ::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_PlayerDied::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_PlayerDied> S2C_PlayerDied::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerDiedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_PlayerDiedT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _player_id = _o->player_id;
+  return ProtoType::Net::CreateS2C_PlayerDied(
+      _fbb,
+      _player_id);
 }
 
 }  // namespace Net

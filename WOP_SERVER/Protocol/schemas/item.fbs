@@ -59,3 +59,31 @@ table S2C_ContainerLootState {
   container_id: uint32;
   items: [InventoryItemEntry];
 }
+
+// One loose item dropped in the open world by an AItemSpawnPoint's roll --
+// not a grid slot (see InventoryItemEntry for that), a fixed world
+// position instead. stack_count mirrors AItemSpawnPoint::SpawnLoot's drops
+// (always 1 today, included for forward-compat).
+table WorldSpawnedItemEntry {
+  item_id: string;
+  position: Vec3;
+  stack_count: short = 1;
+}
+
+// Same first-roll-wins idea as C2S_ContainerLootRoll, for a placed
+// AItemSpawnPoint's scattered world drops instead of a grid container's
+// contents -- reported once, right after it rolls its own loot locally.
+// spawn_point_id is a hash of the placed actor's stable in-level name,
+// same convention as container_id/enemy_id.
+table C2S_ItemSpawnRoll {
+  spawn_point_id: uint32;
+  items: [WorldSpawnedItemEntry];
+}
+
+// The authoritative scattered drops for spawn_point_id -- either the
+// reporting client's own roll (if it was first) or whatever was already
+// stored. Echoed back to EVERY connected client, including the reporter.
+table S2C_ItemSpawnState {
+  spawn_point_id: uint32;
+  items: [WorldSpawnedItemEntry];
+}

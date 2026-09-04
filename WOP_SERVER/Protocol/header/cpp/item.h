@@ -39,6 +39,18 @@ struct S2C_ContainerLootState;
 struct S2C_ContainerLootStateBuilder;
 struct S2C_ContainerLootStateT;
 
+struct WorldSpawnedItemEntry;
+struct WorldSpawnedItemEntryBuilder;
+struct WorldSpawnedItemEntryT;
+
+struct C2S_ItemSpawnRoll;
+struct C2S_ItemSpawnRollBuilder;
+struct C2S_ItemSpawnRollT;
+
+struct S2C_ItemSpawnState;
+struct S2C_ItemSpawnStateBuilder;
+struct S2C_ItemSpawnStateT;
+
 enum class ItemUseType : int8_t {
   Consume = 0,
   Equip = 1,
@@ -538,6 +550,279 @@ inline ::flatbuffers::Offset<S2C_ContainerLootState> CreateS2C_ContainerLootStat
 
 ::flatbuffers::Offset<S2C_ContainerLootState> CreateS2C_ContainerLootState(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ContainerLootStateT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct WorldSpawnedItemEntryT : public ::flatbuffers::NativeTable {
+  typedef WorldSpawnedItemEntry TableType;
+  std::string item_id{};
+  std::unique_ptr<ProtoType::Net::Vec3> position{};
+  int16_t stack_count = 1;
+  WorldSpawnedItemEntryT() = default;
+  WorldSpawnedItemEntryT(const WorldSpawnedItemEntryT &o);
+  WorldSpawnedItemEntryT(WorldSpawnedItemEntryT&&) FLATBUFFERS_NOEXCEPT = default;
+  WorldSpawnedItemEntryT &operator=(WorldSpawnedItemEntryT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct WorldSpawnedItemEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef WorldSpawnedItemEntryT NativeTableType;
+  typedef WorldSpawnedItemEntryBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ITEM_ID = 4,
+    VT_POSITION = 6,
+    VT_STACK_COUNT = 8
+  };
+  const ::flatbuffers::String *item_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ITEM_ID);
+  }
+  const ProtoType::Net::Vec3 *position() const {
+    return GetStruct<const ProtoType::Net::Vec3 *>(VT_POSITION);
+  }
+  int16_t stack_count() const {
+    return GetField<int16_t>(VT_STACK_COUNT, 1);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ITEM_ID) &&
+           verifier.VerifyString(item_id()) &&
+           VerifyField<ProtoType::Net::Vec3>(verifier, VT_POSITION, 4) &&
+           VerifyField<int16_t>(verifier, VT_STACK_COUNT, 2) &&
+           verifier.EndTable();
+  }
+  WorldSpawnedItemEntryT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(WorldSpawnedItemEntryT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<WorldSpawnedItemEntry> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const WorldSpawnedItemEntryT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct WorldSpawnedItemEntryBuilder {
+  typedef WorldSpawnedItemEntry Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_item_id(::flatbuffers::Offset<::flatbuffers::String> item_id) {
+    fbb_.AddOffset(WorldSpawnedItemEntry::VT_ITEM_ID, item_id);
+  }
+  void add_position(const ProtoType::Net::Vec3 *position) {
+    fbb_.AddStruct(WorldSpawnedItemEntry::VT_POSITION, position);
+  }
+  void add_stack_count(int16_t stack_count) {
+    fbb_.AddElement<int16_t>(WorldSpawnedItemEntry::VT_STACK_COUNT, stack_count, 1);
+  }
+  explicit WorldSpawnedItemEntryBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<WorldSpawnedItemEntry> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<WorldSpawnedItemEntry>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<WorldSpawnedItemEntry> CreateWorldSpawnedItemEntry(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> item_id = 0,
+    const ProtoType::Net::Vec3 *position = nullptr,
+    int16_t stack_count = 1) {
+  WorldSpawnedItemEntryBuilder builder_(_fbb);
+  builder_.add_position(position);
+  builder_.add_item_id(item_id);
+  builder_.add_stack_count(stack_count);
+  return builder_.Finish();
+}
+
+struct WorldSpawnedItemEntry::Traits {
+  using type = WorldSpawnedItemEntry;
+  static auto constexpr Create = CreateWorldSpawnedItemEntry;
+};
+
+inline ::flatbuffers::Offset<WorldSpawnedItemEntry> CreateWorldSpawnedItemEntryDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *item_id = nullptr,
+    const ProtoType::Net::Vec3 *position = nullptr,
+    int16_t stack_count = 1) {
+  auto item_id__ = item_id ? _fbb.CreateString(item_id) : 0;
+  return ProtoType::Net::CreateWorldSpawnedItemEntry(
+      _fbb,
+      item_id__,
+      position,
+      stack_count);
+}
+
+::flatbuffers::Offset<WorldSpawnedItemEntry> CreateWorldSpawnedItemEntry(::flatbuffers::FlatBufferBuilder &_fbb, const WorldSpawnedItemEntryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct C2S_ItemSpawnRollT : public ::flatbuffers::NativeTable {
+  typedef C2S_ItemSpawnRoll TableType;
+  uint32_t spawn_point_id = 0;
+  std::vector<std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>> items{};
+  C2S_ItemSpawnRollT() = default;
+  C2S_ItemSpawnRollT(const C2S_ItemSpawnRollT &o);
+  C2S_ItemSpawnRollT(C2S_ItemSpawnRollT&&) FLATBUFFERS_NOEXCEPT = default;
+  C2S_ItemSpawnRollT &operator=(C2S_ItemSpawnRollT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct C2S_ItemSpawnRoll FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_ItemSpawnRollT NativeTableType;
+  typedef C2S_ItemSpawnRollBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SPAWN_POINT_ID = 4,
+    VT_ITEMS = 6
+  };
+  uint32_t spawn_point_id() const {
+    return GetField<uint32_t>(VT_SPAWN_POINT_ID, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *items() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *>(VT_ITEMS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_SPAWN_POINT_ID, 4) &&
+           VerifyOffset(verifier, VT_ITEMS) &&
+           verifier.VerifyVector(items()) &&
+           verifier.VerifyVectorOfTables(items()) &&
+           verifier.EndTable();
+  }
+  C2S_ItemSpawnRollT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_ItemSpawnRollT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_ItemSpawnRoll> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_ItemSpawnRollT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_ItemSpawnRollBuilder {
+  typedef C2S_ItemSpawnRoll Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_spawn_point_id(uint32_t spawn_point_id) {
+    fbb_.AddElement<uint32_t>(C2S_ItemSpawnRoll::VT_SPAWN_POINT_ID, spawn_point_id, 0);
+  }
+  void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>> items) {
+    fbb_.AddOffset(C2S_ItemSpawnRoll::VT_ITEMS, items);
+  }
+  explicit C2S_ItemSpawnRollBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_ItemSpawnRoll> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_ItemSpawnRoll>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_ItemSpawnRoll> CreateC2S_ItemSpawnRoll(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t spawn_point_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>> items = 0) {
+  C2S_ItemSpawnRollBuilder builder_(_fbb);
+  builder_.add_items(items);
+  builder_.add_spawn_point_id(spawn_point_id);
+  return builder_.Finish();
+}
+
+struct C2S_ItemSpawnRoll::Traits {
+  using type = C2S_ItemSpawnRoll;
+  static auto constexpr Create = CreateC2S_ItemSpawnRoll;
+};
+
+inline ::flatbuffers::Offset<C2S_ItemSpawnRoll> CreateC2S_ItemSpawnRollDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t spawn_point_id = 0,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *items = nullptr) {
+  auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>(*items) : 0;
+  return ProtoType::Net::CreateC2S_ItemSpawnRoll(
+      _fbb,
+      spawn_point_id,
+      items__);
+}
+
+::flatbuffers::Offset<C2S_ItemSpawnRoll> CreateC2S_ItemSpawnRoll(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_ItemSpawnRollT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct S2C_ItemSpawnStateT : public ::flatbuffers::NativeTable {
+  typedef S2C_ItemSpawnState TableType;
+  uint32_t spawn_point_id = 0;
+  std::vector<std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>> items{};
+  S2C_ItemSpawnStateT() = default;
+  S2C_ItemSpawnStateT(const S2C_ItemSpawnStateT &o);
+  S2C_ItemSpawnStateT(S2C_ItemSpawnStateT&&) FLATBUFFERS_NOEXCEPT = default;
+  S2C_ItemSpawnStateT &operator=(S2C_ItemSpawnStateT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct S2C_ItemSpawnState FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_ItemSpawnStateT NativeTableType;
+  typedef S2C_ItemSpawnStateBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SPAWN_POINT_ID = 4,
+    VT_ITEMS = 6
+  };
+  uint32_t spawn_point_id() const {
+    return GetField<uint32_t>(VT_SPAWN_POINT_ID, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *items() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *>(VT_ITEMS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_SPAWN_POINT_ID, 4) &&
+           VerifyOffset(verifier, VT_ITEMS) &&
+           verifier.VerifyVector(items()) &&
+           verifier.VerifyVectorOfTables(items()) &&
+           verifier.EndTable();
+  }
+  S2C_ItemSpawnStateT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_ItemSpawnStateT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_ItemSpawnState> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemSpawnStateT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_ItemSpawnStateBuilder {
+  typedef S2C_ItemSpawnState Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_spawn_point_id(uint32_t spawn_point_id) {
+    fbb_.AddElement<uint32_t>(S2C_ItemSpawnState::VT_SPAWN_POINT_ID, spawn_point_id, 0);
+  }
+  void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>> items) {
+    fbb_.AddOffset(S2C_ItemSpawnState::VT_ITEMS, items);
+  }
+  explicit S2C_ItemSpawnStateBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_ItemSpawnState> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_ItemSpawnState>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_ItemSpawnState> CreateS2C_ItemSpawnState(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t spawn_point_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>> items = 0) {
+  S2C_ItemSpawnStateBuilder builder_(_fbb);
+  builder_.add_items(items);
+  builder_.add_spawn_point_id(spawn_point_id);
+  return builder_.Finish();
+}
+
+struct S2C_ItemSpawnState::Traits {
+  using type = S2C_ItemSpawnState;
+  static auto constexpr Create = CreateS2C_ItemSpawnState;
+};
+
+inline ::flatbuffers::Offset<S2C_ItemSpawnState> CreateS2C_ItemSpawnStateDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t spawn_point_id = 0,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *items = nullptr) {
+  auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>(*items) : 0;
+  return ProtoType::Net::CreateS2C_ItemSpawnState(
+      _fbb,
+      spawn_point_id,
+      items__);
+}
+
+::flatbuffers::Offset<S2C_ItemSpawnState> CreateS2C_ItemSpawnState(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemSpawnStateT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline C2S_ItemUseRequestT::C2S_ItemUseRequestT(const C2S_ItemUseRequestT &o)
       : header((o.header) ? new ProtoType::Net::Header(*o.header) : nullptr),
         item_instance_id(o.item_instance_id),
@@ -737,6 +1022,133 @@ inline ::flatbuffers::Offset<S2C_ContainerLootState> S2C_ContainerLootState::Pac
   return ProtoType::Net::CreateS2C_ContainerLootState(
       _fbb,
       _container_id,
+      _items);
+}
+
+inline WorldSpawnedItemEntryT::WorldSpawnedItemEntryT(const WorldSpawnedItemEntryT &o)
+      : item_id(o.item_id),
+        position((o.position) ? new ProtoType::Net::Vec3(*o.position) : nullptr),
+        stack_count(o.stack_count) {
+}
+
+inline WorldSpawnedItemEntryT &WorldSpawnedItemEntryT::operator=(WorldSpawnedItemEntryT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(item_id, o.item_id);
+  std::swap(position, o.position);
+  std::swap(stack_count, o.stack_count);
+  return *this;
+}
+
+inline WorldSpawnedItemEntryT *WorldSpawnedItemEntry::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<WorldSpawnedItemEntryT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void WorldSpawnedItemEntry::UnPackTo(WorldSpawnedItemEntryT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = item_id(); if (_e) _o->item_id = _e->str(); }
+  { auto _e = position(); if (_e) _o->position = std::unique_ptr<ProtoType::Net::Vec3>(new ProtoType::Net::Vec3(*_e)); }
+  { auto _e = stack_count(); _o->stack_count = _e; }
+}
+
+inline ::flatbuffers::Offset<WorldSpawnedItemEntry> CreateWorldSpawnedItemEntry(::flatbuffers::FlatBufferBuilder &_fbb, const WorldSpawnedItemEntryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return WorldSpawnedItemEntry::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<WorldSpawnedItemEntry> WorldSpawnedItemEntry::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const WorldSpawnedItemEntryT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const WorldSpawnedItemEntryT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _item_id = _o->item_id.empty() ? 0 : _fbb.CreateString(_o->item_id);
+  auto _position = _o->position ? _o->position.get() : nullptr;
+  auto _stack_count = _o->stack_count;
+  return ProtoType::Net::CreateWorldSpawnedItemEntry(
+      _fbb,
+      _item_id,
+      _position,
+      _stack_count);
+}
+
+inline C2S_ItemSpawnRollT::C2S_ItemSpawnRollT(const C2S_ItemSpawnRollT &o)
+      : spawn_point_id(o.spawn_point_id) {
+  items.reserve(o.items.size());
+  for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::WorldSpawnedItemEntryT(*items_) : nullptr); }
+}
+
+inline C2S_ItemSpawnRollT &C2S_ItemSpawnRollT::operator=(C2S_ItemSpawnRollT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(spawn_point_id, o.spawn_point_id);
+  std::swap(items, o.items);
+  return *this;
+}
+
+inline C2S_ItemSpawnRollT *C2S_ItemSpawnRoll::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_ItemSpawnRollT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_ItemSpawnRoll::UnPackTo(C2S_ItemSpawnRollT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = spawn_point_id(); _o->spawn_point_id = _e; }
+  { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<C2S_ItemSpawnRoll> CreateC2S_ItemSpawnRoll(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_ItemSpawnRollT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_ItemSpawnRoll::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_ItemSpawnRoll> C2S_ItemSpawnRoll::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_ItemSpawnRollT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_ItemSpawnRollT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _spawn_point_id = _o->spawn_point_id;
+  auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateWorldSpawnedItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return ProtoType::Net::CreateC2S_ItemSpawnRoll(
+      _fbb,
+      _spawn_point_id,
+      _items);
+}
+
+inline S2C_ItemSpawnStateT::S2C_ItemSpawnStateT(const S2C_ItemSpawnStateT &o)
+      : spawn_point_id(o.spawn_point_id) {
+  items.reserve(o.items.size());
+  for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::WorldSpawnedItemEntryT(*items_) : nullptr); }
+}
+
+inline S2C_ItemSpawnStateT &S2C_ItemSpawnStateT::operator=(S2C_ItemSpawnStateT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(spawn_point_id, o.spawn_point_id);
+  std::swap(items, o.items);
+  return *this;
+}
+
+inline S2C_ItemSpawnStateT *S2C_ItemSpawnState::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_ItemSpawnStateT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_ItemSpawnState::UnPackTo(S2C_ItemSpawnStateT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = spawn_point_id(); _o->spawn_point_id = _e; }
+  { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<S2C_ItemSpawnState> CreateS2C_ItemSpawnState(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemSpawnStateT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_ItemSpawnState::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_ItemSpawnState> S2C_ItemSpawnState::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemSpawnStateT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_ItemSpawnStateT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _spawn_point_id = _o->spawn_point_id;
+  auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateWorldSpawnedItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return ProtoType::Net::CreateS2C_ItemSpawnState(
+      _fbb,
+      _spawn_point_id,
       _items);
 }
 

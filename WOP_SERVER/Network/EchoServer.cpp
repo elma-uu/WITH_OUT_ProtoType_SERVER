@@ -396,6 +396,14 @@ namespace Wop
         return it->second;
     }
 
+    const std::vector<WorldItemRecord>& EchoServer::ClaimItemSpawnRoll(
+        uint32_t spawnPointId, std::vector<WorldItemRecord> proposed)
+    {
+        std::lock_guard<std::mutex> guard(itemSpawnLock_);
+        const auto [it, inserted] = itemSpawnRolls_.try_emplace(spawnPointId, std::move(proposed));
+        return it->second;
+    }
+
     bool EchoServer::ClaimEnemy(uint32_t enemyId, uint32_t sessionId)
     {
         std::lock_guard<std::mutex> guard(enemyOwnerLock_);

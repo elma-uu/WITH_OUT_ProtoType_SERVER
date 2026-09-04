@@ -25,6 +25,22 @@ namespace Wop
         // range gets hit right away instead of waiting out a full cooldown.
         float attackCooldownRemaining = 0.0f;
         bool isDead = false;
+
+        // Caller-type only (AEnemyCaller) -- see C2S_EnemyRegister's
+        // schema comment and EnemyAI::Tick's call sweep.
+        bool isCaller = false;
+        float callRadius = 0.0f;
+        float callCooldown = 0.0f;
+        float callCooldownRemaining = 0.0f;
+
+        // 0 = no override, chase whichever player is nearest (the
+        // default). Set once by a Caller's call sweep to lock this enemy
+        // onto the SAME player the caller is engaged with, even if a
+        // different player would otherwise be nearer -- see Tick(). Never
+        // cleared once set (matches AEnemyBase::ReceiveCallTarget's own
+        // "called once, sticks" behavior); falls back to nearest-player if
+        // the forced target disconnects.
+        uint32_t forcedTargetSessionId = 0;
     };
 
     struct FEnemyStateUpdate
@@ -93,12 +109,20 @@ namespace Wop
         bool ApplyDamage(uint32_t enemyId, float damage);
 
         // Advances every tracked (non-dead) enemy by deltaSeconds, steering
-        // each toward whichever player in players is nearest (2D distance).
-        // Once within attackRange, holds position and -- on attackCooldown
-        // -- emits an FEnemyAttackEvent against that nearest player instead
-        // of moving. Returns every enemy's current state for the caller to
-        // broadcast (there's no per-enemy dirty-tracking, the caller's own
-        // tick rate is the throttle) alongside any attacks landed this tick.
+        // each toward its target player -- whichever one is nearest (2D
+        // distance), unless forcedTargetSessionId overrides that (see the
+        // field comment). Once within attackRange, holds position and --
+        // on attackCooldown -- emits an FEnemyAttackEvent against its
+        // target instead of moving. A second pass then lets any
+        // isCaller enemy that's engaged (within its own attackRange of
+        // its target) and off callCooldown force every not-yet-forced
+        // enemy within callRadius onto that same target, mirroring
+        // AEnemyCaller::DoCall's "call nearby zombies" for the
+        // server-driven path (client-local DoCall never runs for these --
+        // see AEnemyBase::Tick's bIsNetworkOwner gate). Returns every
+        // enemy's current state for the caller to broadcast (there's no
+        // per-enemy dirty-tracking, the caller's own tick rate is the
+        // throttle) alongside any attacks landed this tick.
         FEnemyTickResult Tick(float deltaSeconds, const std::vector<FEnemyAiPlayerSnapshot>& players);
 
     private:

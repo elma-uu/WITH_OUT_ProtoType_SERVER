@@ -11,6 +11,20 @@
 
 namespace Wop
 {
+    // One loose item dropped in the open world by an AItemSpawnPoint's
+    // roll -- see EchoServer::ClaimItemSpawnRoll. Distinct from
+    // InventoryItemRecord (Database.h): that one is a grid-slot entry,
+    // this is a fixed world position, and these are never persisted to
+    // the DB (stage props, not player-owned, same as container loot).
+    struct WorldItemRecord
+    {
+        std::string itemId;
+        float posX = 0.0f;
+        float posY = 0.0f;
+        float posZ = 0.0f;
+        int16_t stackCount = 1;
+    };
+
     class EchoServer
     {
     public:
@@ -54,6 +68,12 @@ namespace Wop
         // (not persisted to the DB -- these are stage props, not player-owned).
         const std::vector<InventoryItemRecord>& ClaimContainerLoot(
             uint32_t containerId, std::vector<InventoryItemRecord> proposed);
+
+        // Same first-roll-wins idea as ClaimContainerLoot above, for an
+        // AItemSpawnPoint's scattered world drops instead of a grid
+        // container's contents -- see Session.cpp's C2S_ItemSpawnRoll case.
+        const std::vector<WorldItemRecord>& ClaimItemSpawnRoll(
+            uint32_t spawnPointId, std::vector<WorldItemRecord> proposed);
 
         /*-------------------
          적(좀비) AI 소유권
@@ -152,6 +172,9 @@ namespace Wop
 
         std::mutex containerLootLock_;
         std::unordered_map<uint32_t, std::vector<InventoryItemRecord>> containerLoot_;
+
+        std::mutex itemSpawnLock_;
+        std::unordered_map<uint32_t, std::vector<WorldItemRecord>> itemSpawnRolls_;
 
         std::mutex enemyOwnerLock_;
         std::unordered_map<uint32_t, uint32_t> enemyOwners_; // enemy_id -> owning session id

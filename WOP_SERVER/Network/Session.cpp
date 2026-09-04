@@ -82,6 +82,9 @@ namespace
                     return req->visible() ? "become visible" : "become invisible";
                 return "set visible";
 
+            case Payload::C2S_PlayerDied:
+                return "player died";
+
             case Payload::C2S_ContainerLootRoll:
                 return "container loot roll";
 
@@ -99,6 +102,9 @@ namespace
 
             case Payload::C2S_EnemyRegister:
                 return "enemy register";
+
+            case Payload::C2S_ItemSpawnRoll:
+                return "item spawn roll";
 
             default:
                 return EnumNamePayload(packet->payload_type());
@@ -525,6 +531,102 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_PlayerDied:
+            {
+                // No fields to validate -- player_id is always id_ (see
+                // this message's schema comment), so there's nothing this
+                // session could get wrong here the way a claimed id could.
+                flatbuffers::FlatBufferBuilder fbb;
+                auto died = CreateS2C_PlayerDied(fbb, id_);
+                auto reply = CreatePacket(fbb, Payload::S2C_PlayerDied, died.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            case Payload::C2S_InteractRequest:
+            {
+                const auto* req = packet->payload_as_C2S_InteractRequest();
+                if (!req)
+                    break;
+
+                // Only door open/close is wired up so far -- Loot/Extract/
+                // PlantItem/UseSwitch have no server-side meaning yet
+                // (world-loot pickup, for instance, is a separate flow --
+                // see C2S_ContainerLootRoll/C2S_ItemSpawnRoll). Simple
+                // relay, no arbitration: unlike a loot roll there's no
+                // "right answer" to agree on here, just "player X toggled
+                // door Y, everyone else's copy should match" -- same trust
+                // tier as S2C_ItemUseBroadcast's weapon equip/reload relay.
+                // No state tracked server-side, so a client joining after
+                // the door was already toggled won't see it -- known gap.
+                if (req->interact_type() != InteractType::DoorOpen && req->interact_type() != InteractType::DoorClose)
+                    break;
+
+                flatbuffers::FlatBufferBuilder fbb;
+                auto result = CreateS2C_InteractResult(fbb, id_, req->target_id(), req->interact_type(), ResultCode::Ok);
+                auto reply = CreatePacket(fbb, Payload::S2C_InteractResult, result.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            case Payload::C2S_ItemSpawnRoll:
+            {
+                const auto* req = packet->payload_as_C2S_ItemSpawnRoll();
+                if (!req)
+                    break;
+
+                std::vector<WorldItemRecord> proposed;
+                if (req->items())
+                {
+                    proposed.reserve(req->items()->size());
+                    for (const auto* entry : *req->items())
+                    {
+                        if (!entry || !entry->item_id())
+                            continue;
+                        WorldItemRecord record;
+                        record.itemId = entry->item_id()->str();
+                        if (entry->position())
+                        {
+                            record.posX = entry->position()->x();
+                            record.posY = entry->position()->y();
+                            record.posZ = entry->position()->z();
+                        }
+                        record.stackCount = entry->stack_count();
+                        proposed.push_back(std::move(record));
+                    }
+                }
+
+                // First roll for this spawn_point_id wins -- same
+                // first-roll-wins arbitration as C2S_ContainerLootRoll,
+                // just for loose world drops instead of a grid container.
+                const std::vector<WorldItemRecord>& authoritative =
+                    server_.ClaimItemSpawnRoll(req->spawn_point_id(), std::move(proposed));
+
+                flatbuffers::FlatBufferBuilder fbb;
+                std::vector<flatbuffers::Offset<WorldSpawnedItemEntry>> itemOffsets;
+                itemOffsets.reserve(authoritative.size());
+                for (const auto& item : authoritative)
+                {
+                    auto itemIdOffset = fbb.CreateString(item.itemId);
+                    const Vec3 position(item.posX, item.posY, item.posZ);
+                    itemOffsets.push_back(CreateWorldSpawnedItemEntry(fbb, itemIdOffset, &position, item.stackCount));
+                }
+                auto itemsVector = fbb.CreateVector(itemOffsets);
+                auto state = CreateS2C_ItemSpawnState(fbb, req->spawn_point_id(), itemsVector);
+                auto reply = CreatePacket(fbb, Payload::S2C_ItemSpawnState, state.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+
+                EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                            static_cast<uint32_t>(fbb.GetSize()));
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
             case Payload::C2S_ContainerLootRoll:
             {
                 const auto* req = packet->payload_as_C2S_ContainerLootRoll();
@@ -689,6 +791,9 @@ namespace Wop
                 initial.attackRange = req->attack_range();
                 initial.attackDamage = req->attack_damage();
                 initial.attackCooldown = req->attack_cooldown();
+                initial.isCaller = req->is_caller();
+                initial.callRadius = req->call_radius();
+                initial.callCooldown = req->call_cooldown();
                 server_.RegisterServerEnemy(req->enemy_id(), initial);
                 break;
             }
@@ -799,7 +904,10 @@ namespace Wop
                  type == ProtoType::Net::Payload::C2S_EnemyClaimRequest ||
                  type == ProtoType::Net::Payload::C2S_EnemyState ||
                  type == ProtoType::Net::Payload::C2S_EnemyDamage ||
-                 type == ProtoType::Net::Payload::C2S_EnemyRegister);
+                 type == ProtoType::Net::Payload::C2S_EnemyRegister ||
+                 type == ProtoType::Net::Payload::C2S_InteractRequest ||
+                 type == ProtoType::Net::Payload::C2S_ItemSpawnRoll ||
+                 type == ProtoType::Net::Payload::C2S_PlayerDied);
             if (!skipSelfEcho)
                 EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

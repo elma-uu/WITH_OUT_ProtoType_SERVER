@@ -64,11 +64,15 @@ enum class Payload : uint8_t {
   C2S_EnemyRegister = 30,
   S2C_EnemyAttackResult = 31,
   S2C_EnemyAttackBroadcast = 32,
+  C2S_ItemSpawnRoll = 33,
+  S2C_ItemSpawnState = 34,
+  C2S_PlayerDied = 35,
+  S2C_PlayerDied = 36,
   MIN = NONE,
-  MAX = S2C_EnemyAttackBroadcast
+  MAX = S2C_PlayerDied
 };
 
-inline const Payload (&EnumValuesPayload())[33] {
+inline const Payload (&EnumValuesPayload())[37] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -102,13 +106,17 @@ inline const Payload (&EnumValuesPayload())[33] {
     Payload::S2C_EnemyDamage,
     Payload::C2S_EnemyRegister,
     Payload::S2C_EnemyAttackResult,
-    Payload::S2C_EnemyAttackBroadcast
+    Payload::S2C_EnemyAttackBroadcast,
+    Payload::C2S_ItemSpawnRoll,
+    Payload::S2C_ItemSpawnState,
+    Payload::C2S_PlayerDied,
+    Payload::S2C_PlayerDied
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[34] = {
+  static const char * const names[38] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -142,13 +150,17 @@ inline const char * const *EnumNamesPayload() {
     "C2S_EnemyRegister",
     "S2C_EnemyAttackResult",
     "S2C_EnemyAttackBroadcast",
+    "C2S_ItemSpawnRoll",
+    "S2C_ItemSpawnState",
+    "C2S_PlayerDied",
+    "S2C_PlayerDied",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_EnemyAttackBroadcast)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_PlayerDied)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -285,6 +297,22 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_EnemyAttackBroadcast> {
   static const Payload enum_value = Payload::S2C_EnemyAttackBroadcast;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_ItemSpawnRoll> {
+  static const Payload enum_value = Payload::C2S_ItemSpawnRoll;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_ItemSpawnState> {
+  static const Payload enum_value = Payload::S2C_ItemSpawnState;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::C2S_PlayerDied> {
+  static const Payload enum_value = Payload::C2S_PlayerDied;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_PlayerDied> {
+  static const Payload enum_value = Payload::S2C_PlayerDied;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -415,6 +443,22 @@ template<> struct PayloadUnionTraits<ProtoType::Net::S2C_EnemyAttackResultT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_EnemyAttackBroadcastT> {
   static const Payload enum_value = Payload::S2C_EnemyAttackBroadcast;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_ItemSpawnRollT> {
+  static const Payload enum_value = Payload::C2S_ItemSpawnRoll;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_ItemSpawnStateT> {
+  static const Payload enum_value = Payload::S2C_ItemSpawnState;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_PlayerDiedT> {
+  static const Payload enum_value = Payload::C2S_PlayerDied;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_PlayerDiedT> {
+  static const Payload enum_value = Payload::S2C_PlayerDied;
 };
 
 struct PayloadUnion {
@@ -703,6 +747,38 @@ struct PayloadUnion {
     return type == Payload::S2C_EnemyAttackBroadcast ?
       reinterpret_cast<const ProtoType::Net::S2C_EnemyAttackBroadcastT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_ItemSpawnRollT *AsC2S_ItemSpawnRoll() {
+    return type == Payload::C2S_ItemSpawnRoll ?
+      reinterpret_cast<ProtoType::Net::C2S_ItemSpawnRollT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_ItemSpawnRollT *AsC2S_ItemSpawnRoll() const {
+    return type == Payload::C2S_ItemSpawnRoll ?
+      reinterpret_cast<const ProtoType::Net::C2S_ItemSpawnRollT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_ItemSpawnStateT *AsS2C_ItemSpawnState() {
+    return type == Payload::S2C_ItemSpawnState ?
+      reinterpret_cast<ProtoType::Net::S2C_ItemSpawnStateT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_ItemSpawnStateT *AsS2C_ItemSpawnState() const {
+    return type == Payload::S2C_ItemSpawnState ?
+      reinterpret_cast<const ProtoType::Net::S2C_ItemSpawnStateT *>(value) : nullptr;
+  }
+  ProtoType::Net::C2S_PlayerDiedT *AsC2S_PlayerDied() {
+    return type == Payload::C2S_PlayerDied ?
+      reinterpret_cast<ProtoType::Net::C2S_PlayerDiedT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_PlayerDiedT *AsC2S_PlayerDied() const {
+    return type == Payload::C2S_PlayerDied ?
+      reinterpret_cast<const ProtoType::Net::C2S_PlayerDiedT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_PlayerDiedT *AsS2C_PlayerDied() {
+    return type == Payload::S2C_PlayerDied ?
+      reinterpret_cast<ProtoType::Net::S2C_PlayerDiedT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_PlayerDiedT *AsS2C_PlayerDied() const {
+    return type == Payload::S2C_PlayerDied ?
+      reinterpret_cast<const ProtoType::Net::S2C_PlayerDiedT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -825,6 +901,18 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::S2C_EnemyAttackBroadcast *payload_as_S2C_EnemyAttackBroadcast() const {
     return payload_type() == ProtoType::Net::Payload::S2C_EnemyAttackBroadcast ? static_cast<const ProtoType::Net::S2C_EnemyAttackBroadcast *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_ItemSpawnRoll *payload_as_C2S_ItemSpawnRoll() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_ItemSpawnRoll ? static_cast<const ProtoType::Net::C2S_ItemSpawnRoll *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_ItemSpawnState *payload_as_S2C_ItemSpawnState() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_ItemSpawnState ? static_cast<const ProtoType::Net::S2C_ItemSpawnState *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_PlayerDied *payload_as_C2S_PlayerDied() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_PlayerDied ? static_cast<const ProtoType::Net::C2S_PlayerDied *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_PlayerDied *payload_as_S2C_PlayerDied() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_PlayerDied ? static_cast<const ProtoType::Net::S2C_PlayerDied *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -965,6 +1053,22 @@ template<> inline const ProtoType::Net::S2C_EnemyAttackResult *Packet::payload_a
 
 template<> inline const ProtoType::Net::S2C_EnemyAttackBroadcast *Packet::payload_as<ProtoType::Net::S2C_EnemyAttackBroadcast>() const {
   return payload_as_S2C_EnemyAttackBroadcast();
+}
+
+template<> inline const ProtoType::Net::C2S_ItemSpawnRoll *Packet::payload_as<ProtoType::Net::C2S_ItemSpawnRoll>() const {
+  return payload_as_C2S_ItemSpawnRoll();
+}
+
+template<> inline const ProtoType::Net::S2C_ItemSpawnState *Packet::payload_as<ProtoType::Net::S2C_ItemSpawnState>() const {
+  return payload_as_S2C_ItemSpawnState();
+}
+
+template<> inline const ProtoType::Net::C2S_PlayerDied *Packet::payload_as<ProtoType::Net::C2S_PlayerDied>() const {
+  return payload_as_C2S_PlayerDied();
+}
+
+template<> inline const ProtoType::Net::S2C_PlayerDied *Packet::payload_as<ProtoType::Net::S2C_PlayerDied>() const {
+  return payload_as_S2C_PlayerDied();
 }
 
 struct PacketBuilder {
@@ -1168,6 +1272,22 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyAttackBroadcast *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_ItemSpawnRoll: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_ItemSpawnRoll *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_ItemSpawnState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemSpawnState *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::C2S_PlayerDied: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_PlayerDied *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_PlayerDied: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerDied *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -1316,6 +1436,22 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyAttackBroadcast *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_ItemSpawnRoll: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_ItemSpawnRoll *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_ItemSpawnState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemSpawnState *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::C2S_PlayerDied: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_PlayerDied *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_PlayerDied: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerDied *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -1451,6 +1587,22 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_EnemyAttackBroadcastT *>(value);
       return CreateS2C_EnemyAttackBroadcast(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_ItemSpawnRoll: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_ItemSpawnRollT *>(value);
+      return CreateC2S_ItemSpawnRoll(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_ItemSpawnState: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemSpawnStateT *>(value);
+      return CreateS2C_ItemSpawnState(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::C2S_PlayerDied: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_PlayerDiedT *>(value);
+      return CreateC2S_PlayerDied(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_PlayerDied: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerDiedT *>(value);
+      return CreateS2C_PlayerDied(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -1583,6 +1735,22 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_EnemyAttackBroadcast: {
       value = new ProtoType::Net::S2C_EnemyAttackBroadcastT(*reinterpret_cast<ProtoType::Net::S2C_EnemyAttackBroadcastT *>(u.value));
+      break;
+    }
+    case Payload::C2S_ItemSpawnRoll: {
+      value = new ProtoType::Net::C2S_ItemSpawnRollT(*reinterpret_cast<ProtoType::Net::C2S_ItemSpawnRollT *>(u.value));
+      break;
+    }
+    case Payload::S2C_ItemSpawnState: {
+      value = new ProtoType::Net::S2C_ItemSpawnStateT(*reinterpret_cast<ProtoType::Net::S2C_ItemSpawnStateT *>(u.value));
+      break;
+    }
+    case Payload::C2S_PlayerDied: {
+      value = new ProtoType::Net::C2S_PlayerDiedT(*reinterpret_cast<ProtoType::Net::C2S_PlayerDiedT *>(u.value));
+      break;
+    }
+    case Payload::S2C_PlayerDied: {
+      value = new ProtoType::Net::S2C_PlayerDiedT(*reinterpret_cast<ProtoType::Net::S2C_PlayerDiedT *>(u.value));
       break;
     }
     default:
@@ -1749,6 +1917,26 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_EnemyAttackBroadcast: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_EnemyAttackBroadcastT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_ItemSpawnRoll: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_ItemSpawnRollT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_ItemSpawnState: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_ItemSpawnStateT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_PlayerDied: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_PlayerDiedT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_PlayerDied: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_PlayerDiedT *>(value);
       delete ptr;
       break;
     }

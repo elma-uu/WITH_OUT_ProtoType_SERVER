@@ -58,3 +58,21 @@ table S2C_PlayerLeft {
 table C2S_SetVisible {
   visible: bool;
 }
+
+// Sent once by a client whose local player just died (StatusComponent's
+// OnPlayerDied fired -- see AProtoCharacter::HandleDeath), so the server
+// can broadcast it to every OTHER client. No fields: player_id is always
+// this session's own id, same "server decides, not the client" rule
+// C2S_MoveInput follows for its own position.
+table C2S_PlayerDied {
+}
+
+// Broadcast to every OTHER client. Purely visual on the receiving end --
+// ragdoll this player's remote mirror instead of leaving it standing
+// frozen (see AProtoCharacter::HandleRemotePlayerDied). Health itself
+// isn't server-authoritative yet (see that function's comment), so this
+// is trusted the same way C2S_AttackRequest's gun damage already is: the
+// dying client's own client decided it died, the server just relays it.
+table S2C_PlayerDied {
+  player_id: uint32;
+}

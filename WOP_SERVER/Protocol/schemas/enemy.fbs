@@ -32,6 +32,13 @@ table C2S_EnemyRegister {
   attack_range: float;
   attack_damage: float;
   attack_cooldown: float;
+  // Caller-type only (AEnemyCaller) -- when true, this enemy periodically
+  // forces nearby not-yet-called enemies to chase whichever player IT is
+  // currently engaged with, once it's in attack_range of them and
+  // call_cooldown has elapsed. See EnemyAI::Tick's call sweep.
+  is_caller: bool = false;
+  call_radius: float = 0.0;
+  call_cooldown: float = 0.0;
 }
 
 // granted=true: this session is now the one running enemy_id's AI locally

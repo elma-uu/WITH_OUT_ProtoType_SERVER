@@ -9,9 +9,17 @@ namespace ProtoType.Net;
 // session's own id (see S2C_CompanionMoveState.owner_id), the same
 // "server, not client, decides whose this is" rule C2S_MoveInput already
 // follows for player movement.
+// health/is_dead ride along on the same periodic update rather than a
+// separate message, mirroring C2S_EnemyState/S2C_EnemyState's combined
+// shape -- trusted as-is, same reasoning as that message's schema comment:
+// the owning client is the only one that ever runs this companion's AI/
+// combat, so there's no separate authority to arbitrate against, only a
+// mirror to keep in sync.
 table C2S_CompanionMoveInput {
   position: Vec3;
   look: Rotator;
+  health: float = 100.0;
+  is_dead: bool = false;
 }
 
 // Broadcast to every other connected client. owner_id identifies which
@@ -19,8 +27,13 @@ table C2S_CompanionMoveInput {
 // companion has no login/session. Receivers should spawn/update a
 // remote-companion placeholder for that owner, and despawn it when that
 // owner sends S2C_PlayerLeft (a player's companion can't outlive them).
+// A remote companion with is_dead=true should ragdoll/despawn its mirror,
+// same idea as S2C_PlayerDied for a remote player -- see
+// ACompanionNPC::HandleRemoteCompanionState.
 table S2C_CompanionMoveState {
   owner_id: uint32;
   position: Vec3;
   look: Rotator;
+  health: float = 100.0;
+  is_dead: bool = false;
 }

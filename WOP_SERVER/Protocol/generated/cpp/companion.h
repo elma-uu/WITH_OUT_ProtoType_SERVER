@@ -30,6 +30,8 @@ struct C2S_CompanionMoveInputT : public ::flatbuffers::NativeTable {
   typedef C2S_CompanionMoveInput TableType;
   std::unique_ptr<ProtoType::Net::Vec3> position{};
   std::unique_ptr<ProtoType::Net::Rotator> look{};
+  float health = 100.0f;
+  bool is_dead = false;
   C2S_CompanionMoveInputT() = default;
   C2S_CompanionMoveInputT(const C2S_CompanionMoveInputT &o);
   C2S_CompanionMoveInputT(C2S_CompanionMoveInputT&&) FLATBUFFERS_NOEXCEPT = default;
@@ -42,7 +44,9 @@ struct C2S_CompanionMoveInput FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_POSITION = 4,
-    VT_LOOK = 6
+    VT_LOOK = 6,
+    VT_HEALTH = 8,
+    VT_IS_DEAD = 10
   };
   const ProtoType::Net::Vec3 *position() const {
     return GetStruct<const ProtoType::Net::Vec3 *>(VT_POSITION);
@@ -50,11 +54,19 @@ struct C2S_CompanionMoveInput FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
   const ProtoType::Net::Rotator *look() const {
     return GetStruct<const ProtoType::Net::Rotator *>(VT_LOOK);
   }
+  float health() const {
+    return GetField<float>(VT_HEALTH, 100.0f);
+  }
+  bool is_dead() const {
+    return GetField<uint8_t>(VT_IS_DEAD, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<ProtoType::Net::Vec3>(verifier, VT_POSITION, 4) &&
            VerifyField<ProtoType::Net::Rotator>(verifier, VT_LOOK, 4) &&
+           VerifyField<float>(verifier, VT_HEALTH, 4) &&
+           VerifyField<uint8_t>(verifier, VT_IS_DEAD, 1) &&
            verifier.EndTable();
   }
   C2S_CompanionMoveInputT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -72,6 +84,12 @@ struct C2S_CompanionMoveInputBuilder {
   void add_look(const ProtoType::Net::Rotator *look) {
     fbb_.AddStruct(C2S_CompanionMoveInput::VT_LOOK, look);
   }
+  void add_health(float health) {
+    fbb_.AddElement<float>(C2S_CompanionMoveInput::VT_HEALTH, health, 100.0f);
+  }
+  void add_is_dead(bool is_dead) {
+    fbb_.AddElement<uint8_t>(C2S_CompanionMoveInput::VT_IS_DEAD, static_cast<uint8_t>(is_dead), 0);
+  }
   explicit C2S_CompanionMoveInputBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -86,10 +104,14 @@ struct C2S_CompanionMoveInputBuilder {
 inline ::flatbuffers::Offset<C2S_CompanionMoveInput> CreateC2S_CompanionMoveInput(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const ProtoType::Net::Vec3 *position = nullptr,
-    const ProtoType::Net::Rotator *look = nullptr) {
+    const ProtoType::Net::Rotator *look = nullptr,
+    float health = 100.0f,
+    bool is_dead = false) {
   C2S_CompanionMoveInputBuilder builder_(_fbb);
+  builder_.add_health(health);
   builder_.add_look(look);
   builder_.add_position(position);
+  builder_.add_is_dead(is_dead);
   return builder_.Finish();
 }
 
@@ -105,6 +127,8 @@ struct S2C_CompanionMoveStateT : public ::flatbuffers::NativeTable {
   uint32_t owner_id = 0;
   std::unique_ptr<ProtoType::Net::Vec3> position{};
   std::unique_ptr<ProtoType::Net::Rotator> look{};
+  float health = 100.0f;
+  bool is_dead = false;
   S2C_CompanionMoveStateT() = default;
   S2C_CompanionMoveStateT(const S2C_CompanionMoveStateT &o);
   S2C_CompanionMoveStateT(S2C_CompanionMoveStateT&&) FLATBUFFERS_NOEXCEPT = default;
@@ -118,7 +142,9 @@ struct S2C_CompanionMoveState FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OWNER_ID = 4,
     VT_POSITION = 6,
-    VT_LOOK = 8
+    VT_LOOK = 8,
+    VT_HEALTH = 10,
+    VT_IS_DEAD = 12
   };
   uint32_t owner_id() const {
     return GetField<uint32_t>(VT_OWNER_ID, 0);
@@ -129,12 +155,20 @@ struct S2C_CompanionMoveState FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
   const ProtoType::Net::Rotator *look() const {
     return GetStruct<const ProtoType::Net::Rotator *>(VT_LOOK);
   }
+  float health() const {
+    return GetField<float>(VT_HEALTH, 100.0f);
+  }
+  bool is_dead() const {
+    return GetField<uint8_t>(VT_IS_DEAD, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_OWNER_ID, 4) &&
            VerifyField<ProtoType::Net::Vec3>(verifier, VT_POSITION, 4) &&
            VerifyField<ProtoType::Net::Rotator>(verifier, VT_LOOK, 4) &&
+           VerifyField<float>(verifier, VT_HEALTH, 4) &&
+           VerifyField<uint8_t>(verifier, VT_IS_DEAD, 1) &&
            verifier.EndTable();
   }
   S2C_CompanionMoveStateT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -155,6 +189,12 @@ struct S2C_CompanionMoveStateBuilder {
   void add_look(const ProtoType::Net::Rotator *look) {
     fbb_.AddStruct(S2C_CompanionMoveState::VT_LOOK, look);
   }
+  void add_health(float health) {
+    fbb_.AddElement<float>(S2C_CompanionMoveState::VT_HEALTH, health, 100.0f);
+  }
+  void add_is_dead(bool is_dead) {
+    fbb_.AddElement<uint8_t>(S2C_CompanionMoveState::VT_IS_DEAD, static_cast<uint8_t>(is_dead), 0);
+  }
   explicit S2C_CompanionMoveStateBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -170,11 +210,15 @@ inline ::flatbuffers::Offset<S2C_CompanionMoveState> CreateS2C_CompanionMoveStat
     ::flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t owner_id = 0,
     const ProtoType::Net::Vec3 *position = nullptr,
-    const ProtoType::Net::Rotator *look = nullptr) {
+    const ProtoType::Net::Rotator *look = nullptr,
+    float health = 100.0f,
+    bool is_dead = false) {
   S2C_CompanionMoveStateBuilder builder_(_fbb);
+  builder_.add_health(health);
   builder_.add_look(look);
   builder_.add_position(position);
   builder_.add_owner_id(owner_id);
+  builder_.add_is_dead(is_dead);
   return builder_.Finish();
 }
 
@@ -187,12 +231,16 @@ struct S2C_CompanionMoveState::Traits {
 
 inline C2S_CompanionMoveInputT::C2S_CompanionMoveInputT(const C2S_CompanionMoveInputT &o)
       : position((o.position) ? new ProtoType::Net::Vec3(*o.position) : nullptr),
-        look((o.look) ? new ProtoType::Net::Rotator(*o.look) : nullptr) {
+        look((o.look) ? new ProtoType::Net::Rotator(*o.look) : nullptr),
+        health(o.health),
+        is_dead(o.is_dead) {
 }
 
 inline C2S_CompanionMoveInputT &C2S_CompanionMoveInputT::operator=(C2S_CompanionMoveInputT o) FLATBUFFERS_NOEXCEPT {
   std::swap(position, o.position);
   std::swap(look, o.look);
+  std::swap(health, o.health);
+  std::swap(is_dead, o.is_dead);
   return *this;
 }
 
@@ -207,6 +255,8 @@ inline void C2S_CompanionMoveInput::UnPackTo(C2S_CompanionMoveInputT *_o, const 
   (void)_resolver;
   { auto _e = position(); if (_e) _o->position = std::unique_ptr<ProtoType::Net::Vec3>(new ProtoType::Net::Vec3(*_e)); }
   { auto _e = look(); if (_e) _o->look = std::unique_ptr<ProtoType::Net::Rotator>(new ProtoType::Net::Rotator(*_e)); }
+  { auto _e = health(); _o->health = _e; }
+  { auto _e = is_dead(); _o->is_dead = _e; }
 }
 
 inline ::flatbuffers::Offset<C2S_CompanionMoveInput> CreateC2S_CompanionMoveInput(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_CompanionMoveInputT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -219,22 +269,30 @@ inline ::flatbuffers::Offset<C2S_CompanionMoveInput> C2S_CompanionMoveInput::Pac
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_CompanionMoveInputT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _position = _o->position ? _o->position.get() : nullptr;
   auto _look = _o->look ? _o->look.get() : nullptr;
+  auto _health = _o->health;
+  auto _is_dead = _o->is_dead;
   return ProtoType::Net::CreateC2S_CompanionMoveInput(
       _fbb,
       _position,
-      _look);
+      _look,
+      _health,
+      _is_dead);
 }
 
 inline S2C_CompanionMoveStateT::S2C_CompanionMoveStateT(const S2C_CompanionMoveStateT &o)
       : owner_id(o.owner_id),
         position((o.position) ? new ProtoType::Net::Vec3(*o.position) : nullptr),
-        look((o.look) ? new ProtoType::Net::Rotator(*o.look) : nullptr) {
+        look((o.look) ? new ProtoType::Net::Rotator(*o.look) : nullptr),
+        health(o.health),
+        is_dead(o.is_dead) {
 }
 
 inline S2C_CompanionMoveStateT &S2C_CompanionMoveStateT::operator=(S2C_CompanionMoveStateT o) FLATBUFFERS_NOEXCEPT {
   std::swap(owner_id, o.owner_id);
   std::swap(position, o.position);
   std::swap(look, o.look);
+  std::swap(health, o.health);
+  std::swap(is_dead, o.is_dead);
   return *this;
 }
 
@@ -250,6 +308,8 @@ inline void S2C_CompanionMoveState::UnPackTo(S2C_CompanionMoveStateT *_o, const 
   { auto _e = owner_id(); _o->owner_id = _e; }
   { auto _e = position(); if (_e) _o->position = std::unique_ptr<ProtoType::Net::Vec3>(new ProtoType::Net::Vec3(*_e)); }
   { auto _e = look(); if (_e) _o->look = std::unique_ptr<ProtoType::Net::Rotator>(new ProtoType::Net::Rotator(*_e)); }
+  { auto _e = health(); _o->health = _e; }
+  { auto _e = is_dead(); _o->is_dead = _e; }
 }
 
 inline ::flatbuffers::Offset<S2C_CompanionMoveState> CreateS2C_CompanionMoveState(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_CompanionMoveStateT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -263,11 +323,15 @@ inline ::flatbuffers::Offset<S2C_CompanionMoveState> S2C_CompanionMoveState::Pac
   auto _owner_id = _o->owner_id;
   auto _position = _o->position ? _o->position.get() : nullptr;
   auto _look = _o->look ? _o->look.get() : nullptr;
+  auto _health = _o->health;
+  auto _is_dead = _o->is_dead;
   return ProtoType::Net::CreateS2C_CompanionMoveState(
       _fbb,
       _owner_id,
       _position,
-      _look);
+      _look,
+      _health,
+      _is_dead);
 }
 
 }  // namespace Net

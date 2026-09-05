@@ -404,6 +404,29 @@ namespace Wop
         return it->second;
     }
 
+    void EchoServer::SetDoorState(uint32_t doorId, bool isOpen)
+    {
+        std::lock_guard<std::mutex> guard(doorStateLock_);
+        doorStates_[doorId] = isOpen;
+    }
+
+    std::vector<std::pair<uint32_t, bool>> EchoServer::SnapshotDoorStates() const
+    {
+        std::lock_guard<std::mutex> guard(doorStateLock_);
+        std::vector<std::pair<uint32_t, bool>> snapshot;
+        snapshot.reserve(doorStates_.size());
+        for (const auto& [doorId, isOpen] : doorStates_)
+            snapshot.emplace_back(doorId, isOpen);
+        return snapshot;
+    }
+
+    bool EchoServer::ClaimItemPickup(uint32_t netSlotId, uint32_t sessionId)
+    {
+        std::lock_guard<std::mutex> guard(itemPickupLock_);
+        const auto [it, inserted] = pickedUpItems_.try_emplace(netSlotId, sessionId);
+        return inserted;
+    }
+
     bool EchoServer::ClaimEnemy(uint32_t enemyId, uint32_t sessionId)
     {
         std::lock_guard<std::mutex> guard(enemyOwnerLock_);

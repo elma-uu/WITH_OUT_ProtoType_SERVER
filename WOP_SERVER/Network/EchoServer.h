@@ -76,6 +76,37 @@ namespace Wop
             uint32_t spawnPointId, std::vector<WorldItemRecord> proposed);
 
         /*-------------------
+         문 상태 (늦참 동기화)
+        -------------------*/
+        // Doors are a simple relay, not an arbitrated roll (see
+        // Session.cpp's C2S_InteractRequest case) -- there's no "right
+        // answer" to agree on, just whatever the last toggle said. But a
+        // client joining mid-session still needs to know that LAST answer,
+        // not just future toggles, or an already-open door renders shut on
+        // their screen until someone happens to toggle it again. Recorded
+        // here purely so C2S_Login's roster loop can replay it; doors that
+        // were never toggled simply have no entry (closed is the default
+        // every client already spawns with, nothing to replay). Lives for
+        // the server process's lifetime, same as container/item-spawn
+        // rolls -- not persisted to the DB.
+        void SetDoorState(uint32_t doorId, bool isOpen);
+        std::vector<std::pair<uint32_t, bool>> SnapshotDoorStates() const;
+
+        // First PICKUP of a given ground item wins, not first roll -- this
+        // arbitrates ADropItem::OnInteract (net_slot_id, stable across every
+        // client's copy of the same spawned/rolled item -- see DropItem.h's
+        // NetSlotId comment) rather than what the item even is. Without
+        // this, two players interacting with the same ground item in the
+        // same instant would each add it to their own inventory (a
+        // duplication bug), the same race ClaimContainerLoot/
+        // ClaimItemSpawnRoll prevent for WHAT spawns, just one step later
+        // in the item's life. Returns true only for the FIRST caller for a
+        // given netSlotId; every later caller (including a retry from the
+        // same session) is denied. See Session.cpp's C2S_InteractRequest
+        // case (InteractType::Loot).
+        bool ClaimItemPickup(uint32_t netSlotId, uint32_t sessionId);
+
+        /*-------------------
          적(좀비) AI 소유권
         -------------------*/
         // Enemies are level content, not owned by any one session the way a
@@ -175,6 +206,12 @@ namespace Wop
 
         std::mutex itemSpawnLock_;
         std::unordered_map<uint32_t, std::vector<WorldItemRecord>> itemSpawnRolls_;
+
+        std::mutex itemPickupLock_;
+        std::unordered_map<uint32_t, uint32_t> pickedUpItems_; // net_slot_id -> picking session id
+
+        mutable std::mutex doorStateLock_;
+        std::unordered_map<uint32_t, bool> doorStates_; // door_id -> is_open
 
         std::mutex enemyOwnerLock_;
         std::unordered_map<uint32_t, uint32_t> enemyOwners_; // enemy_id -> owning session id

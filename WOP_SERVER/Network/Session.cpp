@@ -363,6 +363,27 @@ namespace Wop
                     }
                 }
 
+                // 2b) Tell this client about every door someone already
+                // toggled this server run (see EchoServer::SetDoorState's
+                // header comment for why this is world state, not
+                // per-session state like the roster above). Doors never
+                // toggled have no entry -- closed is what every client
+                // already spawns with, nothing to replay. player_id here is
+                // meaningless (the client's OnDoorInteract handler only
+                // looks at target_id/interact_type), so it's just this
+                // session's own id rather than whoever actually toggled it
+                // (that information isn't kept, only the current state is).
+                for (const auto& [doorId, isOpen] : server_.SnapshotDoorStates())
+                {
+                    flatbuffers::FlatBufferBuilder doorFbb;
+                    auto doorResult = CreateS2C_InteractResult(doorFbb, id_, doorId,
+                        isOpen ? InteractType::DoorOpen : InteractType::DoorClose, ResultCode::Ok);
+                    auto doorReply = CreatePacket(doorFbb, Payload::S2C_InteractResult, doorResult.Union());
+                    FinishSizePrefixedPacketBuffer(doorFbb, doorReply);
+                    EnqueueEcho(reinterpret_cast<const char*>(doorFbb.GetBufferPointer()),
+                                static_cast<uint32_t>(doorFbb.GetSize()));
+                }
+
                 // 3) Tell everyone else that this player just joined.
                 {
                     flatbuffers::FlatBufferBuilder fbb;
@@ -551,18 +572,50 @@ namespace Wop
                 if (!req)
                     break;
 
-                // Only door open/close is wired up so far -- Loot/Extract/
-                // PlantItem/UseSwitch have no server-side meaning yet
-                // (world-loot pickup, for instance, is a separate flow --
-                // see C2S_ContainerLootRoll/C2S_ItemSpawnRoll). Simple
-                // relay, no arbitration: unlike a loot roll there's no
-                // "right answer" to agree on here, just "player X toggled
-                // door Y, everyone else's copy should match" -- same trust
-                // tier as S2C_ItemUseBroadcast's weapon equip/reload relay.
-                // No state tracked server-side, so a client joining after
-                // the door was already toggled won't see it -- known gap.
+                // Loot (picking up a ground ADropItem) needs arbitration,
+                // not just a relay: target_id here is the item's NetSlotId
+                // (stable across every client's copy of the same spawned
+                // item -- see DropItem.h), and two players could interact
+                // with the same ground item in the same instant. First
+                // claim wins (ClaimItemPickup); the winner's result is
+                // broadcast to everyone (including themselves) so every
+                // client destroys its copy of that item, while a loser gets
+                // told Denied and just destroys its own copy without adding
+                // anything to their inventory.
+                if (req->interact_type() == InteractType::Loot)
+                {
+                    const bool granted = server_.ClaimItemPickup(req->target_id(), id_);
+                    const ResultCode result = granted ? ResultCode::Ok : ResultCode::Denied;
+
+                    flatbuffers::FlatBufferBuilder fbb;
+                    auto pickupResult = CreateS2C_InteractResult(fbb, id_, req->target_id(), req->interact_type(), result);
+                    auto reply = CreatePacket(fbb, Payload::S2C_InteractResult, pickupResult.Union());
+                    FinishSizePrefixedPacketBuffer(fbb, reply);
+
+                    EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                static_cast<uint32_t>(fbb.GetSize()));
+                    if (granted)
+                    {
+                        server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                           static_cast<uint32_t>(fbb.GetSize()));
+                    }
+                    break;
+                }
+
+                // Only door open/close is wired up beyond Loot above --
+                // Extract/PlantItem/UseSwitch have no server-side meaning
+                // yet. Simple relay, no arbitration: unlike a loot roll (or
+                // Loot pickup above) there's no "right answer" to agree on
+                // here, just "player X toggled door Y, everyone else's copy
+                // should match" -- same trust tier as S2C_ItemUseBroadcast's
+                // weapon equip/reload relay. The toggle IS recorded
+                // (SetDoorState) purely so a client joining later gets it
+                // replayed in C2S_Login's roster loop -- see that loop and
+                // EchoServer::SetDoorState's header comment.
                 if (req->interact_type() != InteractType::DoorOpen && req->interact_type() != InteractType::DoorClose)
                     break;
+
+                server_.SetDoorState(req->target_id(), req->interact_type() == InteractType::DoorOpen);
 
                 flatbuffers::FlatBufferBuilder fbb;
                 auto result = CreateS2C_InteractResult(fbb, id_, req->target_id(), req->interact_type(), ResultCode::Ok);

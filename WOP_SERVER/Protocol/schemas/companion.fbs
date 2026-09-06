@@ -9,17 +9,25 @@ namespace ProtoType.Net;
 // session's own id (see S2C_CompanionMoveState.owner_id), the same
 // "server, not client, decides whose this is" rule C2S_MoveInput already
 // follows for player movement.
-// health/is_dead ride along on the same periodic update rather than a
-// separate message, mirroring C2S_EnemyState/S2C_EnemyState's combined
-// shape -- trusted as-is, same reasoning as that message's schema comment:
-// the owning client is the only one that ever runs this companion's AI/
-// combat, so there's no separate authority to arbitrate against, only a
-// mirror to keep in sync.
+// health/is_dead/weapon_type/is_aiming/aim_pitch all ride along on the
+// same periodic update rather than a separate message, mirroring
+// C2S_EnemyState/S2C_EnemyState's combined shape -- trusted as-is, same
+// reasoning as that message's schema comment: the owning client is the
+// only one that ever runs this companion's AI/combat, so there's no
+// separate authority to arbitrate against, only a mirror to keep in sync.
+// weapon_type follows the same ubyte convention as
+// S2C_LoginSuccess.weapon_type/EWeaponType (0=None/1=Rifle/2=Pistol/
+// 3=Melee) -- a remote companion's puppet has no CombatComponent of its
+// own to derive this from (see ACompanionNPC::MarkAsRemotePuppet), so it
+// has to be told.
 table C2S_CompanionMoveInput {
   position: Vec3;
   look: Rotator;
   health: float = 100.0;
   is_dead: bool = false;
+  weapon_type: ubyte = 0;
+  is_aiming: bool = false;
+  aim_pitch: float = 0.0;
 }
 
 // Broadcast to every other connected client. owner_id identifies which
@@ -29,11 +37,14 @@ table C2S_CompanionMoveInput {
 // owner sends S2C_PlayerLeft (a player's companion can't outlive them).
 // A remote companion with is_dead=true should ragdoll/despawn its mirror,
 // same idea as S2C_PlayerDied for a remote player -- see
-// ACompanionNPC::HandleRemoteCompanionState.
+// UProtoNetClientSubsystem::UpdateRemoteCompanion.
 table S2C_CompanionMoveState {
   owner_id: uint32;
   position: Vec3;
   look: Rotator;
   health: float = 100.0;
   is_dead: bool = false;
+  weapon_type: ubyte = 0;
+  is_aiming: bool = false;
+  aim_pitch: float = 0.0;
 }

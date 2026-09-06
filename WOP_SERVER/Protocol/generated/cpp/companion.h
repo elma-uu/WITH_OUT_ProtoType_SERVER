@@ -32,6 +32,9 @@ struct C2S_CompanionMoveInputT : public ::flatbuffers::NativeTable {
   std::unique_ptr<ProtoType::Net::Rotator> look{};
   float health = 100.0f;
   bool is_dead = false;
+  uint8_t weapon_type = 0;
+  bool is_aiming = false;
+  float aim_pitch = 0.0f;
   C2S_CompanionMoveInputT() = default;
   C2S_CompanionMoveInputT(const C2S_CompanionMoveInputT &o);
   C2S_CompanionMoveInputT(C2S_CompanionMoveInputT&&) FLATBUFFERS_NOEXCEPT = default;
@@ -46,7 +49,10 @@ struct C2S_CompanionMoveInput FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
     VT_POSITION = 4,
     VT_LOOK = 6,
     VT_HEALTH = 8,
-    VT_IS_DEAD = 10
+    VT_IS_DEAD = 10,
+    VT_WEAPON_TYPE = 12,
+    VT_IS_AIMING = 14,
+    VT_AIM_PITCH = 16
   };
   const ProtoType::Net::Vec3 *position() const {
     return GetStruct<const ProtoType::Net::Vec3 *>(VT_POSITION);
@@ -60,6 +66,15 @@ struct C2S_CompanionMoveInput FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
   bool is_dead() const {
     return GetField<uint8_t>(VT_IS_DEAD, 0) != 0;
   }
+  uint8_t weapon_type() const {
+    return GetField<uint8_t>(VT_WEAPON_TYPE, 0);
+  }
+  bool is_aiming() const {
+    return GetField<uint8_t>(VT_IS_AIMING, 0) != 0;
+  }
+  float aim_pitch() const {
+    return GetField<float>(VT_AIM_PITCH, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -67,6 +82,9 @@ struct C2S_CompanionMoveInput FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
            VerifyField<ProtoType::Net::Rotator>(verifier, VT_LOOK, 4) &&
            VerifyField<float>(verifier, VT_HEALTH, 4) &&
            VerifyField<uint8_t>(verifier, VT_IS_DEAD, 1) &&
+           VerifyField<uint8_t>(verifier, VT_WEAPON_TYPE, 1) &&
+           VerifyField<uint8_t>(verifier, VT_IS_AIMING, 1) &&
+           VerifyField<float>(verifier, VT_AIM_PITCH, 4) &&
            verifier.EndTable();
   }
   C2S_CompanionMoveInputT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -90,6 +108,15 @@ struct C2S_CompanionMoveInputBuilder {
   void add_is_dead(bool is_dead) {
     fbb_.AddElement<uint8_t>(C2S_CompanionMoveInput::VT_IS_DEAD, static_cast<uint8_t>(is_dead), 0);
   }
+  void add_weapon_type(uint8_t weapon_type) {
+    fbb_.AddElement<uint8_t>(C2S_CompanionMoveInput::VT_WEAPON_TYPE, weapon_type, 0);
+  }
+  void add_is_aiming(bool is_aiming) {
+    fbb_.AddElement<uint8_t>(C2S_CompanionMoveInput::VT_IS_AIMING, static_cast<uint8_t>(is_aiming), 0);
+  }
+  void add_aim_pitch(float aim_pitch) {
+    fbb_.AddElement<float>(C2S_CompanionMoveInput::VT_AIM_PITCH, aim_pitch, 0.0f);
+  }
   explicit C2S_CompanionMoveInputBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -106,11 +133,17 @@ inline ::flatbuffers::Offset<C2S_CompanionMoveInput> CreateC2S_CompanionMoveInpu
     const ProtoType::Net::Vec3 *position = nullptr,
     const ProtoType::Net::Rotator *look = nullptr,
     float health = 100.0f,
-    bool is_dead = false) {
+    bool is_dead = false,
+    uint8_t weapon_type = 0,
+    bool is_aiming = false,
+    float aim_pitch = 0.0f) {
   C2S_CompanionMoveInputBuilder builder_(_fbb);
+  builder_.add_aim_pitch(aim_pitch);
   builder_.add_health(health);
   builder_.add_look(look);
   builder_.add_position(position);
+  builder_.add_is_aiming(is_aiming);
+  builder_.add_weapon_type(weapon_type);
   builder_.add_is_dead(is_dead);
   return builder_.Finish();
 }
@@ -129,6 +162,9 @@ struct S2C_CompanionMoveStateT : public ::flatbuffers::NativeTable {
   std::unique_ptr<ProtoType::Net::Rotator> look{};
   float health = 100.0f;
   bool is_dead = false;
+  uint8_t weapon_type = 0;
+  bool is_aiming = false;
+  float aim_pitch = 0.0f;
   S2C_CompanionMoveStateT() = default;
   S2C_CompanionMoveStateT(const S2C_CompanionMoveStateT &o);
   S2C_CompanionMoveStateT(S2C_CompanionMoveStateT&&) FLATBUFFERS_NOEXCEPT = default;
@@ -144,7 +180,10 @@ struct S2C_CompanionMoveState FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
     VT_POSITION = 6,
     VT_LOOK = 8,
     VT_HEALTH = 10,
-    VT_IS_DEAD = 12
+    VT_IS_DEAD = 12,
+    VT_WEAPON_TYPE = 14,
+    VT_IS_AIMING = 16,
+    VT_AIM_PITCH = 18
   };
   uint32_t owner_id() const {
     return GetField<uint32_t>(VT_OWNER_ID, 0);
@@ -161,6 +200,15 @@ struct S2C_CompanionMoveState FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
   bool is_dead() const {
     return GetField<uint8_t>(VT_IS_DEAD, 0) != 0;
   }
+  uint8_t weapon_type() const {
+    return GetField<uint8_t>(VT_WEAPON_TYPE, 0);
+  }
+  bool is_aiming() const {
+    return GetField<uint8_t>(VT_IS_AIMING, 0) != 0;
+  }
+  float aim_pitch() const {
+    return GetField<float>(VT_AIM_PITCH, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -169,6 +217,9 @@ struct S2C_CompanionMoveState FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
            VerifyField<ProtoType::Net::Rotator>(verifier, VT_LOOK, 4) &&
            VerifyField<float>(verifier, VT_HEALTH, 4) &&
            VerifyField<uint8_t>(verifier, VT_IS_DEAD, 1) &&
+           VerifyField<uint8_t>(verifier, VT_WEAPON_TYPE, 1) &&
+           VerifyField<uint8_t>(verifier, VT_IS_AIMING, 1) &&
+           VerifyField<float>(verifier, VT_AIM_PITCH, 4) &&
            verifier.EndTable();
   }
   S2C_CompanionMoveStateT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -195,6 +246,15 @@ struct S2C_CompanionMoveStateBuilder {
   void add_is_dead(bool is_dead) {
     fbb_.AddElement<uint8_t>(S2C_CompanionMoveState::VT_IS_DEAD, static_cast<uint8_t>(is_dead), 0);
   }
+  void add_weapon_type(uint8_t weapon_type) {
+    fbb_.AddElement<uint8_t>(S2C_CompanionMoveState::VT_WEAPON_TYPE, weapon_type, 0);
+  }
+  void add_is_aiming(bool is_aiming) {
+    fbb_.AddElement<uint8_t>(S2C_CompanionMoveState::VT_IS_AIMING, static_cast<uint8_t>(is_aiming), 0);
+  }
+  void add_aim_pitch(float aim_pitch) {
+    fbb_.AddElement<float>(S2C_CompanionMoveState::VT_AIM_PITCH, aim_pitch, 0.0f);
+  }
   explicit S2C_CompanionMoveStateBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -212,12 +272,18 @@ inline ::flatbuffers::Offset<S2C_CompanionMoveState> CreateS2C_CompanionMoveStat
     const ProtoType::Net::Vec3 *position = nullptr,
     const ProtoType::Net::Rotator *look = nullptr,
     float health = 100.0f,
-    bool is_dead = false) {
+    bool is_dead = false,
+    uint8_t weapon_type = 0,
+    bool is_aiming = false,
+    float aim_pitch = 0.0f) {
   S2C_CompanionMoveStateBuilder builder_(_fbb);
+  builder_.add_aim_pitch(aim_pitch);
   builder_.add_health(health);
   builder_.add_look(look);
   builder_.add_position(position);
   builder_.add_owner_id(owner_id);
+  builder_.add_is_aiming(is_aiming);
+  builder_.add_weapon_type(weapon_type);
   builder_.add_is_dead(is_dead);
   return builder_.Finish();
 }
@@ -233,7 +299,10 @@ inline C2S_CompanionMoveInputT::C2S_CompanionMoveInputT(const C2S_CompanionMoveI
       : position((o.position) ? new ProtoType::Net::Vec3(*o.position) : nullptr),
         look((o.look) ? new ProtoType::Net::Rotator(*o.look) : nullptr),
         health(o.health),
-        is_dead(o.is_dead) {
+        is_dead(o.is_dead),
+        weapon_type(o.weapon_type),
+        is_aiming(o.is_aiming),
+        aim_pitch(o.aim_pitch) {
 }
 
 inline C2S_CompanionMoveInputT &C2S_CompanionMoveInputT::operator=(C2S_CompanionMoveInputT o) FLATBUFFERS_NOEXCEPT {
@@ -241,6 +310,9 @@ inline C2S_CompanionMoveInputT &C2S_CompanionMoveInputT::operator=(C2S_Companion
   std::swap(look, o.look);
   std::swap(health, o.health);
   std::swap(is_dead, o.is_dead);
+  std::swap(weapon_type, o.weapon_type);
+  std::swap(is_aiming, o.is_aiming);
+  std::swap(aim_pitch, o.aim_pitch);
   return *this;
 }
 
@@ -257,6 +329,9 @@ inline void C2S_CompanionMoveInput::UnPackTo(C2S_CompanionMoveInputT *_o, const 
   { auto _e = look(); if (_e) _o->look = std::unique_ptr<ProtoType::Net::Rotator>(new ProtoType::Net::Rotator(*_e)); }
   { auto _e = health(); _o->health = _e; }
   { auto _e = is_dead(); _o->is_dead = _e; }
+  { auto _e = weapon_type(); _o->weapon_type = _e; }
+  { auto _e = is_aiming(); _o->is_aiming = _e; }
+  { auto _e = aim_pitch(); _o->aim_pitch = _e; }
 }
 
 inline ::flatbuffers::Offset<C2S_CompanionMoveInput> CreateC2S_CompanionMoveInput(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_CompanionMoveInputT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -271,12 +346,18 @@ inline ::flatbuffers::Offset<C2S_CompanionMoveInput> C2S_CompanionMoveInput::Pac
   auto _look = _o->look ? _o->look.get() : nullptr;
   auto _health = _o->health;
   auto _is_dead = _o->is_dead;
+  auto _weapon_type = _o->weapon_type;
+  auto _is_aiming = _o->is_aiming;
+  auto _aim_pitch = _o->aim_pitch;
   return ProtoType::Net::CreateC2S_CompanionMoveInput(
       _fbb,
       _position,
       _look,
       _health,
-      _is_dead);
+      _is_dead,
+      _weapon_type,
+      _is_aiming,
+      _aim_pitch);
 }
 
 inline S2C_CompanionMoveStateT::S2C_CompanionMoveStateT(const S2C_CompanionMoveStateT &o)
@@ -284,7 +365,10 @@ inline S2C_CompanionMoveStateT::S2C_CompanionMoveStateT(const S2C_CompanionMoveS
         position((o.position) ? new ProtoType::Net::Vec3(*o.position) : nullptr),
         look((o.look) ? new ProtoType::Net::Rotator(*o.look) : nullptr),
         health(o.health),
-        is_dead(o.is_dead) {
+        is_dead(o.is_dead),
+        weapon_type(o.weapon_type),
+        is_aiming(o.is_aiming),
+        aim_pitch(o.aim_pitch) {
 }
 
 inline S2C_CompanionMoveStateT &S2C_CompanionMoveStateT::operator=(S2C_CompanionMoveStateT o) FLATBUFFERS_NOEXCEPT {
@@ -293,6 +377,9 @@ inline S2C_CompanionMoveStateT &S2C_CompanionMoveStateT::operator=(S2C_Companion
   std::swap(look, o.look);
   std::swap(health, o.health);
   std::swap(is_dead, o.is_dead);
+  std::swap(weapon_type, o.weapon_type);
+  std::swap(is_aiming, o.is_aiming);
+  std::swap(aim_pitch, o.aim_pitch);
   return *this;
 }
 
@@ -310,6 +397,9 @@ inline void S2C_CompanionMoveState::UnPackTo(S2C_CompanionMoveStateT *_o, const 
   { auto _e = look(); if (_e) _o->look = std::unique_ptr<ProtoType::Net::Rotator>(new ProtoType::Net::Rotator(*_e)); }
   { auto _e = health(); _o->health = _e; }
   { auto _e = is_dead(); _o->is_dead = _e; }
+  { auto _e = weapon_type(); _o->weapon_type = _e; }
+  { auto _e = is_aiming(); _o->is_aiming = _e; }
+  { auto _e = aim_pitch(); _o->aim_pitch = _e; }
 }
 
 inline ::flatbuffers::Offset<S2C_CompanionMoveState> CreateS2C_CompanionMoveState(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_CompanionMoveStateT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -325,13 +415,19 @@ inline ::flatbuffers::Offset<S2C_CompanionMoveState> S2C_CompanionMoveState::Pac
   auto _look = _o->look ? _o->look.get() : nullptr;
   auto _health = _o->health;
   auto _is_dead = _o->is_dead;
+  auto _weapon_type = _o->weapon_type;
+  auto _is_aiming = _o->is_aiming;
+  auto _aim_pitch = _o->aim_pitch;
   return ProtoType::Net::CreateS2C_CompanionMoveState(
       _fbb,
       _owner_id,
       _position,
       _look,
       _health,
-      _is_dead);
+      _is_dead,
+      _weapon_type,
+      _is_aiming,
+      _aim_pitch);
 }
 
 }  // namespace Net

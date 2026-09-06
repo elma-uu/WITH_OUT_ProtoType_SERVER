@@ -744,7 +744,8 @@ namespace Wop
                 const Rotator look = req->look() ? *req->look() : Rotator(0.0f, 0.0f, 0.0f);
 
                 flatbuffers::FlatBufferBuilder fbb;
-                auto state = CreateS2C_CompanionMoveState(fbb, id_, &position, &look, req->health(), req->is_dead());
+                auto state = CreateS2C_CompanionMoveState(fbb, id_, &position, &look, req->health(), req->is_dead(),
+                    req->weapon_type(), req->is_aiming(), req->aim_pitch());
                 auto reply = CreatePacket(fbb, Payload::S2C_CompanionMoveState, state.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
                 server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),

@@ -125,6 +125,15 @@ namespace Wop
         // throttle) alongside any attacks landed this tick.
         FEnemyTickResult Tick(float deltaSeconds, const std::vector<FEnemyAiPlayerSnapshot>& players);
 
+        // Forgets every registered enemy (health, death, forced targets --
+        // everything RegisterIfNew/ApplyDamage/Tick have accumulated), so
+        // the next client to register enemy_id starts it fresh instead of
+        // "already dead/damaged from an earlier session" -- see
+        // EchoServer::UnregisterSession's comment for when/why this runs.
+        // obstacles_ is level geometry, not per-session state, and is left
+        // alone.
+        void Reset();
+
     private:
         std::mutex lock_;
         std::unordered_map<uint32_t, FEnemyAiRecord> enemies_;

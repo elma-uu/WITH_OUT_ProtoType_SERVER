@@ -318,6 +318,7 @@ namespace Wop
     void EchoServer::UnregisterSession(uint32_t sessionId)
     {
         std::shared_ptr<Session> keepAlive;
+        bool bServerNowEmpty = false;
         {
             std::lock_guard<std::mutex> guard(sessionsLock_);
             auto it = sessions_.find(sessionId);
@@ -325,7 +326,41 @@ namespace Wop
             {
                 keepAlive = std::move(it->second);
                 sessions_.erase(it);
+                bServerNowEmpty = sessions_.empty();
             }
+        }
+
+        // Last player just left: forget every claim this server run has
+        // accumulated for container loot/item spawns/pickups/doors/enemies,
+        // so the next player(s) to join start a genuinely fresh world
+        // instead of one where, say, half the loot from three test sessions
+        // ago is permanently already-claimed (see ClaimItemPickup/
+        // ClaimContainerLoot/ClaimItemSpawnRoll -- these have no expiry, a
+        // claimed slot stays claimed for this process's whole lifetime
+        // otherwise) or every zombie someone killed hours ago is still
+        // registered as dead. Doesn't touch per-account DB state (progress/
+        // inventory) -- only this in-memory, not-tied-to-any-account world
+        // state.
+        if (bServerNowEmpty)
+        {
+            {
+                std::lock_guard<std::mutex> guard(itemPickupLock_);
+                pickedUpItems_.clear();
+            }
+            {
+                std::lock_guard<std::mutex> guard(itemSpawnLock_);
+                itemSpawnRolls_.clear();
+            }
+            {
+                std::lock_guard<std::mutex> guard(containerLootLock_);
+                containerLoot_.clear();
+            }
+            {
+                std::lock_guard<std::mutex> guard(doorStateLock_);
+                doorStates_.clear();
+            }
+            enemyAi_.Reset();
+            std::printf("Server empty -- world state (loot/pickups/doors/enemies) reset for the next session.\n");
         }
 
         if (keepAlive)

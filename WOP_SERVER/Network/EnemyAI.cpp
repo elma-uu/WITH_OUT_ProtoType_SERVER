@@ -23,6 +23,12 @@ namespace Wop
         enemies_.try_emplace(enemyId, initial);
     }
 
+    void EnemyAI::Reset()
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        enemies_.clear();
+    }
+
     bool EnemyAI::ApplyDamage(uint32_t enemyId, float damage)
     {
         std::lock_guard<std::mutex> guard(lock_);

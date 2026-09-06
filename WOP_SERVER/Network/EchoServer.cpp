@@ -542,10 +542,18 @@ namespace Wop
             // "excluded" session for server-driven AI the way there is for
             // a player's own broadcast. Session id travels along with the
             // position now (not just a bare position) so an attack event
-            // can name WHO it landed on.
+            // can name WHO it landed on. Invisible sessions (C2S_SetVisible
+            // false -- left the shared multiplayer world for a Single map/
+            // hub/SafePlace while staying connected, see Session::IsVisible)
+            // are skipped entirely: their position_ stopped updating the
+            // moment they left, so leaving them in would let a zombie keep
+            // "chasing"/landing hits on a frozen, stale position from a map
+            // that player isn't even in anymore.
             std::vector<FEnemyAiPlayerSnapshot> playerSnapshots;
             for (const auto& session : SnapshotOtherSessions(0))
             {
+                if (!session->IsVisible())
+                    continue;
                 const ProtoType::Net::Vec3 pos = session->GetPosition();
                 playerSnapshots.push_back({ session->GetId(), pos.x(), pos.y(), pos.z() });
             }

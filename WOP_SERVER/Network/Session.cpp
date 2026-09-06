@@ -616,6 +616,12 @@ namespace Wop
                 if (!req)
                     break;
 
+                // Recorded regardless of direction -- EnemyAiLoop checks
+                // this to exclude an invisible session's (now frozen,
+                // stopped-updating) position from server-driven enemies'
+                // target snapshot (see Session::IsVisible's comment).
+                visible_ = req->visible();
+
                 // visible=true needs no reply here -- see this message's
                 // schema comment: the next C2S_MoveInput this session sends
                 // (resumed once the client's back in a Multi map) naturally

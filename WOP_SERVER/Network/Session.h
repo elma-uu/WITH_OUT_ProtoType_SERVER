@@ -60,6 +60,17 @@ namespace Wop
         // newly-joining clients what everyone is currently holding.
         uint8_t GetWeaponType() const { return weaponType_; }
 
+        // Set from C2S_SetVisible -- false means this session left the
+        // shared multiplayer world (Single map, hub/SafePlace, etc; see
+        // UProtoNetClientSubsystem::SetMultiplayerVisualsEnabled) while
+        // staying connected. EchoServer::EnemyAiLoop excludes invisible
+        // sessions from server-driven enemies' target snapshot: without
+        // this, a zombie could keep "chasing"/attacking a player's last
+        // reported position from a map they already left, landing
+        // S2C_EnemyAttackResult hits on a player standing safely somewhere
+        // else entirely (see this message's schema comment).
+        bool IsVisible() const { return visible_; }
+
         // Best-effort final progress save on disconnect. No-op if this
         // session never logged into a DB account (accountId_ < 0). Called
         // by EchoServer::UnregisterSession, outside of lock_ -- same known,
@@ -107,6 +118,7 @@ namespace Wop
         ProtoType::Net::Vec3 position_{};
         ProtoType::Net::Rotator look_{};
         uint8_t weaponType_ = 0;
+        bool visible_ = true;
 
         // Set once C2S_Login authenticates against dbo.Accounts; -1 means
         // "not logged into an account" (e.g. no username/password sent, or

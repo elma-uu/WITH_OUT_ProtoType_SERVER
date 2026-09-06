@@ -77,6 +77,12 @@ namespace
             case Payload::C2S_SaveInventory:
                 return "save inventory";
 
+            case Payload::C2S_SaveEquipment:
+                return "save equipment";
+
+            case Payload::C2S_SaveQuickSlots:
+                return "save quick slots";
+
             case Payload::C2S_SetVisible:
                 if (const auto* req = packet->payload_as_C2S_SetVisible())
                     return req->visible() ? "become visible" : "become invisible";
@@ -245,6 +251,8 @@ namespace Wop
                 Rotator savedLook{};
                 uint8_t savedWeaponType = 0;
                 std::vector<InventoryItemRecord> savedInventory;
+                std::vector<EquipmentItemRecord> savedEquipment;
+                std::vector<QuickSlotItemRecord> savedQuickSlots;
 
                 if (req && req->username() && req->username()->size() > 0
                     && req->password() && Database::Get().IsConnected())
@@ -296,6 +304,8 @@ namespace Wop
                     accountId_ = accountId;
                     hasSavedProgress = Database::Get().LoadProgress(accountId, savedPosition, savedLook, savedWeaponType);
                     Database::Get().LoadInventory(accountId, savedInventory);
+                    Database::Get().LoadEquipment(accountId, savedEquipment);
+                    Database::Get().LoadQuickSlots(accountId, savedQuickSlots);
                 }
 
                 if (hasSavedProgress)
@@ -328,7 +338,26 @@ namespace Wop
                     }
                     auto inventoryVector = fbb.CreateVector(inventoryOffsets);
 
-                    auto success = CreateS2C_LoginSuccess(fbb, id_, &position_, &look_, weaponType_, hasSavedProgress, inventoryVector);
+                    std::vector<flatbuffers::Offset<EquipmentItemEntry>> equipmentOffsets;
+                    equipmentOffsets.reserve(savedEquipment.size());
+                    for (const auto& item : savedEquipment)
+                    {
+                        auto itemIdOffset = fbb.CreateString(item.itemId);
+                        equipmentOffsets.push_back(CreateEquipmentItemEntry(fbb, item.slot, itemIdOffset));
+                    }
+                    auto equipmentVector = fbb.CreateVector(equipmentOffsets);
+
+                    std::vector<flatbuffers::Offset<QuickSlotItemEntry>> quickSlotOffsets;
+                    quickSlotOffsets.reserve(savedQuickSlots.size());
+                    for (const auto& item : savedQuickSlots)
+                    {
+                        auto itemIdOffset = fbb.CreateString(item.itemId);
+                        quickSlotOffsets.push_back(CreateQuickSlotItemEntry(fbb, item.slotIndex, itemIdOffset, item.stackCount));
+                    }
+                    auto quickSlotVector = fbb.CreateVector(quickSlotOffsets);
+
+                    auto success = CreateS2C_LoginSuccess(fbb, id_, &position_, &look_, weaponType_, hasSavedProgress,
+                        inventoryVector, equipmentVector, quickSlotVector);
                     auto reply = CreatePacket(fbb, Payload::S2C_LoginSuccess, success.Union());
                     FinishSizePrefixedPacketBuffer(fbb, reply);
                     EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
@@ -523,6 +552,61 @@ namespace Wop
                 }
 
                 Database::Get().SaveInventory(accountId_, items);
+                break;
+            }
+
+            case Payload::C2S_SaveEquipment:
+            {
+                // Same trust tier as C2S_SaveInventory above -- no reply, no
+                // broadcast, silently ignored for guest sessions.
+                if (accountId_ < 0)
+                    break;
+
+                const auto* req = packet->payload_as_C2S_SaveEquipment();
+                if (!req || !req->items())
+                    break;
+
+                std::vector<EquipmentItemRecord> items;
+                items.reserve(req->items()->size());
+                for (const auto* entry : *req->items())
+                {
+                    if (!entry || !entry->item_id())
+                        continue;
+                    EquipmentItemRecord record;
+                    record.slot = entry->slot();
+                    record.itemId = entry->item_id()->str();
+                    items.push_back(std::move(record));
+                }
+
+                Database::Get().SaveEquipment(accountId_, items);
+                break;
+            }
+
+            case Payload::C2S_SaveQuickSlots:
+            {
+                // Same trust tier as C2S_SaveInventory above -- no reply, no
+                // broadcast, silently ignored for guest sessions.
+                if (accountId_ < 0)
+                    break;
+
+                const auto* req = packet->payload_as_C2S_SaveQuickSlots();
+                if (!req || !req->items())
+                    break;
+
+                std::vector<QuickSlotItemRecord> items;
+                items.reserve(req->items()->size());
+                for (const auto* entry : *req->items())
+                {
+                    if (!entry || !entry->item_id())
+                        continue;
+                    QuickSlotItemRecord record;
+                    record.slotIndex = entry->slot_index();
+                    record.itemId = entry->item_id()->str();
+                    record.stackCount = entry->stack_count();
+                    items.push_back(std::move(record));
+                }
+
+                Database::Get().SaveQuickSlots(accountId_, items);
                 break;
             }
 
@@ -952,6 +1036,8 @@ namespace Wop
                 (type == ProtoType::Net::Payload::C2S_Login ||
                  type == ProtoType::Net::Payload::C2S_MoveInput ||
                  type == ProtoType::Net::Payload::C2S_SaveInventory ||
+                 type == ProtoType::Net::Payload::C2S_SaveEquipment ||
+                 type == ProtoType::Net::Payload::C2S_SaveQuickSlots ||
                  type == ProtoType::Net::Payload::C2S_SetVisible ||
                  type == ProtoType::Net::Payload::C2S_ContainerLootRoll ||
                  type == ProtoType::Net::Payload::C2S_CompanionMoveInput ||

@@ -68,11 +68,13 @@ enum class Payload : uint8_t {
   S2C_ItemSpawnState = 34,
   C2S_PlayerDied = 35,
   S2C_PlayerDied = 36,
+  C2S_SaveEquipment = 37,
+  C2S_SaveQuickSlots = 38,
   MIN = NONE,
-  MAX = S2C_PlayerDied
+  MAX = C2S_SaveQuickSlots
 };
 
-inline const Payload (&EnumValuesPayload())[37] {
+inline const Payload (&EnumValuesPayload())[39] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -110,13 +112,15 @@ inline const Payload (&EnumValuesPayload())[37] {
     Payload::C2S_ItemSpawnRoll,
     Payload::S2C_ItemSpawnState,
     Payload::C2S_PlayerDied,
-    Payload::S2C_PlayerDied
+    Payload::S2C_PlayerDied,
+    Payload::C2S_SaveEquipment,
+    Payload::C2S_SaveQuickSlots
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[38] = {
+  static const char * const names[40] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -154,13 +158,15 @@ inline const char * const *EnumNamesPayload() {
     "S2C_ItemSpawnState",
     "C2S_PlayerDied",
     "S2C_PlayerDied",
+    "C2S_SaveEquipment",
+    "C2S_SaveQuickSlots",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_PlayerDied)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::C2S_SaveQuickSlots)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -313,6 +319,14 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_PlayerDied> {
   static const Payload enum_value = Payload::S2C_PlayerDied;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_SaveEquipment> {
+  static const Payload enum_value = Payload::C2S_SaveEquipment;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::C2S_SaveQuickSlots> {
+  static const Payload enum_value = Payload::C2S_SaveQuickSlots;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -459,6 +473,14 @@ template<> struct PayloadUnionTraits<ProtoType::Net::C2S_PlayerDiedT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_PlayerDiedT> {
   static const Payload enum_value = Payload::S2C_PlayerDied;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_SaveEquipmentT> {
+  static const Payload enum_value = Payload::C2S_SaveEquipment;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_SaveQuickSlotsT> {
+  static const Payload enum_value = Payload::C2S_SaveQuickSlots;
 };
 
 struct PayloadUnion {
@@ -779,6 +801,22 @@ struct PayloadUnion {
     return type == Payload::S2C_PlayerDied ?
       reinterpret_cast<const ProtoType::Net::S2C_PlayerDiedT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_SaveEquipmentT *AsC2S_SaveEquipment() {
+    return type == Payload::C2S_SaveEquipment ?
+      reinterpret_cast<ProtoType::Net::C2S_SaveEquipmentT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_SaveEquipmentT *AsC2S_SaveEquipment() const {
+    return type == Payload::C2S_SaveEquipment ?
+      reinterpret_cast<const ProtoType::Net::C2S_SaveEquipmentT *>(value) : nullptr;
+  }
+  ProtoType::Net::C2S_SaveQuickSlotsT *AsC2S_SaveQuickSlots() {
+    return type == Payload::C2S_SaveQuickSlots ?
+      reinterpret_cast<ProtoType::Net::C2S_SaveQuickSlotsT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_SaveQuickSlotsT *AsC2S_SaveQuickSlots() const {
+    return type == Payload::C2S_SaveQuickSlots ?
+      reinterpret_cast<const ProtoType::Net::C2S_SaveQuickSlotsT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -913,6 +951,12 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::S2C_PlayerDied *payload_as_S2C_PlayerDied() const {
     return payload_type() == ProtoType::Net::Payload::S2C_PlayerDied ? static_cast<const ProtoType::Net::S2C_PlayerDied *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_SaveEquipment *payload_as_C2S_SaveEquipment() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_SaveEquipment ? static_cast<const ProtoType::Net::C2S_SaveEquipment *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_SaveQuickSlots *payload_as_C2S_SaveQuickSlots() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_SaveQuickSlots ? static_cast<const ProtoType::Net::C2S_SaveQuickSlots *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -1069,6 +1113,14 @@ template<> inline const ProtoType::Net::C2S_PlayerDied *Packet::payload_as<Proto
 
 template<> inline const ProtoType::Net::S2C_PlayerDied *Packet::payload_as<ProtoType::Net::S2C_PlayerDied>() const {
   return payload_as_S2C_PlayerDied();
+}
+
+template<> inline const ProtoType::Net::C2S_SaveEquipment *Packet::payload_as<ProtoType::Net::C2S_SaveEquipment>() const {
+  return payload_as_C2S_SaveEquipment();
+}
+
+template<> inline const ProtoType::Net::C2S_SaveQuickSlots *Packet::payload_as<ProtoType::Net::C2S_SaveQuickSlots>() const {
+  return payload_as_C2S_SaveQuickSlots();
 }
 
 struct PacketBuilder {
@@ -1288,6 +1340,14 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerDied *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_SaveEquipment: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveEquipment *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::C2S_SaveQuickSlots: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveQuickSlots *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -1452,6 +1512,14 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerDied *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_SaveEquipment: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveEquipment *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::C2S_SaveQuickSlots: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveQuickSlots *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -1603,6 +1671,14 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_PlayerDiedT *>(value);
       return CreateS2C_PlayerDied(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_SaveEquipment: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveEquipmentT *>(value);
+      return CreateC2S_SaveEquipment(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::C2S_SaveQuickSlots: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveQuickSlotsT *>(value);
+      return CreateC2S_SaveQuickSlots(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -1751,6 +1827,14 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_PlayerDied: {
       value = new ProtoType::Net::S2C_PlayerDiedT(*reinterpret_cast<ProtoType::Net::S2C_PlayerDiedT *>(u.value));
+      break;
+    }
+    case Payload::C2S_SaveEquipment: {
+      value = new ProtoType::Net::C2S_SaveEquipmentT(*reinterpret_cast<ProtoType::Net::C2S_SaveEquipmentT *>(u.value));
+      break;
+    }
+    case Payload::C2S_SaveQuickSlots: {
+      value = new ProtoType::Net::C2S_SaveQuickSlotsT(*reinterpret_cast<ProtoType::Net::C2S_SaveQuickSlotsT *>(u.value));
       break;
     }
     default:
@@ -1937,6 +2021,16 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_PlayerDied: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_PlayerDiedT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_SaveEquipment: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_SaveEquipmentT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_SaveQuickSlots: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_SaveQuickSlotsT *>(value);
       delete ptr;
       break;
     }

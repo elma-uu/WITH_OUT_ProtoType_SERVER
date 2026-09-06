@@ -141,7 +141,77 @@ namespace Wop
 
         connected_ = true;
         std::printf("[DB] Connected to WithStandGameDB\n");
+
+        EnsureSchema();
         return true;
+    }
+
+    void Database::EnsureSchema()
+    {
+        // No lock_ here -- called from Connect(), which already holds it.
+        struct TableDef
+        {
+            const char* name;
+            const char* createSql;
+        };
+        const TableDef tables[] = {
+            { "PlayerEquipment",
+              "CREATE TABLE dbo.PlayerEquipment ("
+              "AccountId INT NOT NULL, "
+              "Slot TINYINT NOT NULL, "
+              "ItemId VARCHAR(64) NOT NULL, "
+              "PRIMARY KEY (AccountId, Slot))" },
+            { "PlayerQuickSlots",
+              "CREATE TABLE dbo.PlayerQuickSlots ("
+              "AccountId INT NOT NULL, "
+              "SlotIndex TINYINT NOT NULL, "
+              "ItemId VARCHAR(64) NOT NULL, "
+              "StackCount SMALLINT NOT NULL DEFAULT 1, "
+              "PRIMARY KEY (AccountId, SlotIndex))" },
+        };
+
+        for (const TableDef& table : tables)
+        {
+            SQLHSTMT checkStmt = SQL_NULL_HSTMT;
+            SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &checkStmt);
+            StmtGuard checkGuard(checkStmt);
+
+            SQLLEN nameLenInd = SQL_NTS;
+            SQLBindParameter(checkStmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
+                strlen(table.name), 0, const_cast<char*>(table.name), 0, &nameLenInd);
+
+            const SQLRETURN selectRet = SQLExecDirectA(checkStmt,
+                const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                    "SELECT 1 FROM sys.tables WHERE name = ? AND schema_id = SCHEMA_ID('dbo')")),
+                SQL_NTS);
+            if (selectRet != SQL_SUCCESS && selectRet != SQL_SUCCESS_WITH_INFO)
+            {
+                LogDiag("EnsureSchema: SELECT sys.tables", SQL_HANDLE_STMT, checkStmt);
+                continue;
+            }
+
+            const SQLRETURN fetchRet = SQLFetch(checkStmt);
+            const bool alreadyExists = fetchRet == SQL_SUCCESS || fetchRet == SQL_SUCCESS_WITH_INFO;
+            if (alreadyExists)
+            {
+                continue;
+            }
+
+            SQLHSTMT createStmt = SQL_NULL_HSTMT;
+            SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &createStmt);
+            StmtGuard createGuard(createStmt);
+            const SQLRETURN createRet = SQLExecDirectA(createStmt,
+                const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(table.createSql)),
+                SQL_NTS);
+            if (createRet != SQL_SUCCESS && createRet != SQL_SUCCESS_WITH_INFO)
+            {
+                LogDiag("EnsureSchema: CREATE TABLE", SQL_HANDLE_STMT, createStmt);
+            }
+            else
+            {
+                std::printf("[DB] Created missing table dbo.%s\n", table.name);
+            }
+        }
     }
 
     AuthResult Database::Authenticate(const std::string& username, const std::string& password, int& outAccountId)
@@ -542,6 +612,237 @@ namespace Wop
             if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
             {
                 LogDiag("SaveInventory: INSERT", SQL_HANDLE_STMT, insertStmt);
+                ok = false;
+            }
+        }
+
+        SQLEndTran(SQL_HANDLE_DBC, hdbc_, ok ? SQL_COMMIT : SQL_ROLLBACK);
+        SQLSetConnectAttr(hdbc_, SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_ON), 0);
+
+        return ok;
+    }
+
+    bool Database::LoadEquipment(int accountId, std::vector<EquipmentItemRecord>& outItems)
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (!connected_)
+            return false;
+
+        outItems.clear();
+
+        SQLHSTMT stmt = SQL_NULL_HSTMT;
+        SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &stmt);
+        StmtGuard stmtGuard(stmt);
+
+        SQLINTEGER accId = accountId;
+        SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+
+        const SQLRETURN ret = SQLExecDirectA(stmt,
+            const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                "SELECT Slot, ItemId FROM dbo.PlayerEquipment WHERE AccountId = ?")),
+            SQL_NTS);
+        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+        {
+            LogDiag("LoadEquipment: SELECT", SQL_HANDLE_STMT, stmt);
+            return false;
+        }
+
+        for (;;)
+        {
+            const SQLRETURN fetchRet = SQLFetch(stmt);
+            if (fetchRet == SQL_NO_DATA)
+                break;
+            if (fetchRet != SQL_SUCCESS && fetchRet != SQL_SUCCESS_WITH_INFO)
+            {
+                LogDiag("LoadEquipment: fetch", SQL_HANDLE_STMT, stmt);
+                return false;
+            }
+
+            SQLSMALLINT slot = 0;
+            char itemIdBuf[65]{};
+            SQLLEN itemIdLen = 0;
+            SQLLEN indicator = 0;
+            SQLGetData(stmt, 1, SQL_C_SHORT, &slot, 0, &indicator);
+            SQLGetData(stmt, 2, SQL_C_CHAR, itemIdBuf, sizeof(itemIdBuf), &itemIdLen);
+
+            EquipmentItemRecord record;
+            record.slot = static_cast<uint8_t>(slot);
+            record.itemId.assign(itemIdBuf, itemIdLen > 0 ? static_cast<size_t>(itemIdLen) : 0);
+            outItems.push_back(std::move(record));
+        }
+
+        return true;
+    }
+
+    bool Database::SaveEquipment(int accountId, const std::vector<EquipmentItemRecord>& items)
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (!connected_)
+            return false;
+
+        // Same full-replace-in-one-transaction contract as SaveInventory.
+        SQLSetConnectAttr(hdbc_, SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_OFF), 0);
+
+        bool ok = true;
+        SQLINTEGER accId = accountId;
+
+        {
+            SQLHSTMT deleteStmt = SQL_NULL_HSTMT;
+            SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &deleteStmt);
+            StmtGuard deleteGuard(deleteStmt);
+            SQLBindParameter(deleteStmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+            const SQLRETURN ret = SQLExecDirectA(deleteStmt,
+                const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                    "DELETE FROM dbo.PlayerEquipment WHERE AccountId = ?")),
+                SQL_NTS);
+            if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO && ret != SQL_NO_DATA)
+            {
+                LogDiag("SaveEquipment: DELETE", SQL_HANDLE_STMT, deleteStmt);
+                ok = false;
+            }
+        }
+
+        for (const EquipmentItemRecord& item : items)
+        {
+            if (!ok)
+                break;
+
+            SQLHSTMT insertStmt = SQL_NULL_HSTMT;
+            SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &insertStmt);
+            StmtGuard insertGuard(insertStmt);
+
+            SQLSMALLINT slot = item.slot;
+            SQLLEN itemIdLenInd = SQL_NTS;
+            SQLBindParameter(insertStmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+            SQLBindParameter(insertStmt, 2, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &slot, 0, nullptr);
+            SQLBindParameter(insertStmt, 3, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
+                item.itemId.size(), 0, const_cast<char*>(item.itemId.c_str()), 0, &itemIdLenInd);
+
+            const SQLRETURN ret = SQLExecDirectA(insertStmt,
+                const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                    "INSERT INTO dbo.PlayerEquipment (AccountId, Slot, ItemId) VALUES (?, ?, ?)")),
+                SQL_NTS);
+            if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+            {
+                LogDiag("SaveEquipment: INSERT", SQL_HANDLE_STMT, insertStmt);
+                ok = false;
+            }
+        }
+
+        SQLEndTran(SQL_HANDLE_DBC, hdbc_, ok ? SQL_COMMIT : SQL_ROLLBACK);
+        SQLSetConnectAttr(hdbc_, SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_ON), 0);
+
+        return ok;
+    }
+
+    bool Database::LoadQuickSlots(int accountId, std::vector<QuickSlotItemRecord>& outItems)
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (!connected_)
+            return false;
+
+        outItems.clear();
+
+        SQLHSTMT stmt = SQL_NULL_HSTMT;
+        SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &stmt);
+        StmtGuard stmtGuard(stmt);
+
+        SQLINTEGER accId = accountId;
+        SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+
+        const SQLRETURN ret = SQLExecDirectA(stmt,
+            const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                "SELECT SlotIndex, ItemId, StackCount FROM dbo.PlayerQuickSlots WHERE AccountId = ?")),
+            SQL_NTS);
+        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+        {
+            LogDiag("LoadQuickSlots: SELECT", SQL_HANDLE_STMT, stmt);
+            return false;
+        }
+
+        for (;;)
+        {
+            const SQLRETURN fetchRet = SQLFetch(stmt);
+            if (fetchRet == SQL_NO_DATA)
+                break;
+            if (fetchRet != SQL_SUCCESS && fetchRet != SQL_SUCCESS_WITH_INFO)
+            {
+                LogDiag("LoadQuickSlots: fetch", SQL_HANDLE_STMT, stmt);
+                return false;
+            }
+
+            SQLSMALLINT slotIndex = 0;
+            char itemIdBuf[65]{};
+            SQLLEN itemIdLen = 0;
+            SQLSMALLINT stackCount = 0;
+            SQLLEN indicator = 0;
+            SQLGetData(stmt, 1, SQL_C_SHORT, &slotIndex, 0, &indicator);
+            SQLGetData(stmt, 2, SQL_C_CHAR, itemIdBuf, sizeof(itemIdBuf), &itemIdLen);
+            SQLGetData(stmt, 3, SQL_C_SHORT, &stackCount, 0, &indicator);
+
+            QuickSlotItemRecord record;
+            record.slotIndex = static_cast<uint8_t>(slotIndex);
+            record.itemId.assign(itemIdBuf, itemIdLen > 0 ? static_cast<size_t>(itemIdLen) : 0);
+            record.stackCount = stackCount;
+            outItems.push_back(std::move(record));
+        }
+
+        return true;
+    }
+
+    bool Database::SaveQuickSlots(int accountId, const std::vector<QuickSlotItemRecord>& items)
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (!connected_)
+            return false;
+
+        // Same full-replace-in-one-transaction contract as SaveInventory.
+        SQLSetConnectAttr(hdbc_, SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_OFF), 0);
+
+        bool ok = true;
+        SQLINTEGER accId = accountId;
+
+        {
+            SQLHSTMT deleteStmt = SQL_NULL_HSTMT;
+            SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &deleteStmt);
+            StmtGuard deleteGuard(deleteStmt);
+            SQLBindParameter(deleteStmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+            const SQLRETURN ret = SQLExecDirectA(deleteStmt,
+                const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                    "DELETE FROM dbo.PlayerQuickSlots WHERE AccountId = ?")),
+                SQL_NTS);
+            if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO && ret != SQL_NO_DATA)
+            {
+                LogDiag("SaveQuickSlots: DELETE", SQL_HANDLE_STMT, deleteStmt);
+                ok = false;
+            }
+        }
+
+        for (const QuickSlotItemRecord& item : items)
+        {
+            if (!ok)
+                break;
+
+            SQLHSTMT insertStmt = SQL_NULL_HSTMT;
+            SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &insertStmt);
+            StmtGuard insertGuard(insertStmt);
+
+            SQLSMALLINT slotIndex = item.slotIndex;
+            SQLSMALLINT stackCount = item.stackCount;
+            SQLLEN itemIdLenInd = SQL_NTS;
+            SQLBindParameter(insertStmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+            SQLBindParameter(insertStmt, 2, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &slotIndex, 0, nullptr);
+            SQLBindParameter(insertStmt, 3, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
+                item.itemId.size(), 0, const_cast<char*>(item.itemId.c_str()), 0, &itemIdLenInd);
+            SQLBindParameter(insertStmt, 4, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &stackCount, 0, nullptr);
+
+            const SQLRETURN ret = SQLExecDirectA(insertStmt,
+                const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                    "INSERT INTO dbo.PlayerQuickSlots (AccountId, SlotIndex, ItemId, StackCount) VALUES (?, ?, ?, ?)")),
+                SQL_NTS);
+            if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+            {
+                LogDiag("SaveQuickSlots: INSERT", SQL_HANDLE_STMT, insertStmt);
                 ok = false;
             }
         }

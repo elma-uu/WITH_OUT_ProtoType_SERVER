@@ -296,6 +296,8 @@ struct S2C_LoginSuccessT : public ::flatbuffers::NativeTable {
   uint8_t weapon_type = 0;
   bool has_saved_progress = false;
   std::vector<std::unique_ptr<ProtoType::Net::InventoryItemEntryT>> inventory{};
+  std::vector<std::unique_ptr<ProtoType::Net::EquipmentItemEntryT>> equipment{};
+  std::vector<std::unique_ptr<ProtoType::Net::QuickSlotItemEntryT>> quick_slots{};
   S2C_LoginSuccessT() = default;
   S2C_LoginSuccessT(const S2C_LoginSuccessT &o);
   S2C_LoginSuccessT(S2C_LoginSuccessT&&) FLATBUFFERS_NOEXCEPT = default;
@@ -312,7 +314,9 @@ struct S2C_LoginSuccess FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LOOK = 8,
     VT_WEAPON_TYPE = 10,
     VT_HAS_SAVED_PROGRESS = 12,
-    VT_INVENTORY = 14
+    VT_INVENTORY = 14,
+    VT_EQUIPMENT = 16,
+    VT_QUICK_SLOTS = 18
   };
   uint32_t player_id() const {
     return GetField<uint32_t>(VT_PLAYER_ID, 0);
@@ -332,6 +336,12 @@ struct S2C_LoginSuccess FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *inventory() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *>(VT_INVENTORY);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>> *equipment() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>> *>(VT_EQUIPMENT);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>> *quick_slots() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>> *>(VT_QUICK_SLOTS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -343,6 +353,12 @@ struct S2C_LoginSuccess FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_INVENTORY) &&
            verifier.VerifyVector(inventory()) &&
            verifier.VerifyVectorOfTables(inventory()) &&
+           VerifyOffset(verifier, VT_EQUIPMENT) &&
+           verifier.VerifyVector(equipment()) &&
+           verifier.VerifyVectorOfTables(equipment()) &&
+           VerifyOffset(verifier, VT_QUICK_SLOTS) &&
+           verifier.VerifyVector(quick_slots()) &&
+           verifier.VerifyVectorOfTables(quick_slots()) &&
            verifier.EndTable();
   }
   S2C_LoginSuccessT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -372,6 +388,12 @@ struct S2C_LoginSuccessBuilder {
   void add_inventory(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> inventory) {
     fbb_.AddOffset(S2C_LoginSuccess::VT_INVENTORY, inventory);
   }
+  void add_equipment(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>>> equipment) {
+    fbb_.AddOffset(S2C_LoginSuccess::VT_EQUIPMENT, equipment);
+  }
+  void add_quick_slots(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>>> quick_slots) {
+    fbb_.AddOffset(S2C_LoginSuccess::VT_QUICK_SLOTS, quick_slots);
+  }
   explicit S2C_LoginSuccessBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -390,8 +412,12 @@ inline ::flatbuffers::Offset<S2C_LoginSuccess> CreateS2C_LoginSuccess(
     const ProtoType::Net::Rotator *look = nullptr,
     uint8_t weapon_type = 0,
     bool has_saved_progress = false,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> inventory = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> inventory = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>>> equipment = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>>> quick_slots = 0) {
   S2C_LoginSuccessBuilder builder_(_fbb);
+  builder_.add_quick_slots(quick_slots);
+  builder_.add_equipment(equipment);
   builder_.add_inventory(inventory);
   builder_.add_look(look);
   builder_.add_position(position);
@@ -413,8 +439,12 @@ inline ::flatbuffers::Offset<S2C_LoginSuccess> CreateS2C_LoginSuccessDirect(
     const ProtoType::Net::Rotator *look = nullptr,
     uint8_t weapon_type = 0,
     bool has_saved_progress = false,
-    const std::vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *inventory = nullptr) {
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *inventory = nullptr,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>> *equipment = nullptr,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>> *quick_slots = nullptr) {
   auto inventory__ = inventory ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>(*inventory) : 0;
+  auto equipment__ = equipment ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>>(*equipment) : 0;
+  auto quick_slots__ = quick_slots ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>>(*quick_slots) : 0;
   return ProtoType::Net::CreateS2C_LoginSuccess(
       _fbb,
       player_id,
@@ -422,7 +452,9 @@ inline ::flatbuffers::Offset<S2C_LoginSuccess> CreateS2C_LoginSuccessDirect(
       look,
       weapon_type,
       has_saved_progress,
-      inventory__);
+      inventory__,
+      equipment__,
+      quick_slots__);
 }
 
 ::flatbuffers::Offset<S2C_LoginSuccess> CreateS2C_LoginSuccess(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_LoginSuccessT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -502,6 +534,10 @@ inline S2C_LoginSuccessT::S2C_LoginSuccessT(const S2C_LoginSuccessT &o)
         has_saved_progress(o.has_saved_progress) {
   inventory.reserve(o.inventory.size());
   for (const auto &inventory_ : o.inventory) { inventory.emplace_back((inventory_) ? new ProtoType::Net::InventoryItemEntryT(*inventory_) : nullptr); }
+  equipment.reserve(o.equipment.size());
+  for (const auto &equipment_ : o.equipment) { equipment.emplace_back((equipment_) ? new ProtoType::Net::EquipmentItemEntryT(*equipment_) : nullptr); }
+  quick_slots.reserve(o.quick_slots.size());
+  for (const auto &quick_slots_ : o.quick_slots) { quick_slots.emplace_back((quick_slots_) ? new ProtoType::Net::QuickSlotItemEntryT(*quick_slots_) : nullptr); }
 }
 
 inline S2C_LoginSuccessT &S2C_LoginSuccessT::operator=(S2C_LoginSuccessT o) FLATBUFFERS_NOEXCEPT {
@@ -511,6 +547,8 @@ inline S2C_LoginSuccessT &S2C_LoginSuccessT::operator=(S2C_LoginSuccessT o) FLAT
   std::swap(weapon_type, o.weapon_type);
   std::swap(has_saved_progress, o.has_saved_progress);
   std::swap(inventory, o.inventory);
+  std::swap(equipment, o.equipment);
+  std::swap(quick_slots, o.quick_slots);
   return *this;
 }
 
@@ -529,6 +567,8 @@ inline void S2C_LoginSuccess::UnPackTo(S2C_LoginSuccessT *_o, const ::flatbuffer
   { auto _e = weapon_type(); _o->weapon_type = _e; }
   { auto _e = has_saved_progress(); _o->has_saved_progress = _e; }
   { auto _e = inventory(); if (_e) { _o->inventory.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->inventory[_i]) { _e->Get(_i)->UnPackTo(_o->inventory[_i].get(), _resolver); } else { _o->inventory[_i] = std::unique_ptr<ProtoType::Net::InventoryItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->inventory.resize(0); } }
+  { auto _e = equipment(); if (_e) { _o->equipment.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->equipment[_i]) { _e->Get(_i)->UnPackTo(_o->equipment[_i].get(), _resolver); } else { _o->equipment[_i] = std::unique_ptr<ProtoType::Net::EquipmentItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->equipment.resize(0); } }
+  { auto _e = quick_slots(); if (_e) { _o->quick_slots.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->quick_slots[_i]) { _e->Get(_i)->UnPackTo(_o->quick_slots[_i].get(), _resolver); } else { _o->quick_slots[_i] = std::unique_ptr<ProtoType::Net::QuickSlotItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->quick_slots.resize(0); } }
 }
 
 inline ::flatbuffers::Offset<S2C_LoginSuccess> CreateS2C_LoginSuccess(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_LoginSuccessT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -545,6 +585,8 @@ inline ::flatbuffers::Offset<S2C_LoginSuccess> S2C_LoginSuccess::Pack(::flatbuff
   auto _weapon_type = _o->weapon_type;
   auto _has_saved_progress = _o->has_saved_progress;
   auto _inventory = _o->inventory.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> (_o->inventory.size(), [](size_t i, _VectorArgs *__va) { return CreateInventoryItemEntry(*__va->__fbb, __va->__o->inventory[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _equipment = _o->equipment.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>> (_o->equipment.size(), [](size_t i, _VectorArgs *__va) { return CreateEquipmentItemEntry(*__va->__fbb, __va->__o->equipment[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _quick_slots = _o->quick_slots.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>> (_o->quick_slots.size(), [](size_t i, _VectorArgs *__va) { return CreateQuickSlotItemEntry(*__va->__fbb, __va->__o->quick_slots[i].get(), __va->__rehasher); }, &_va ) : 0;
   return ProtoType::Net::CreateS2C_LoginSuccess(
       _fbb,
       _player_id,
@@ -552,7 +594,9 @@ inline ::flatbuffers::Offset<S2C_LoginSuccess> S2C_LoginSuccess::Pack(::flatbuff
       _look,
       _weapon_type,
       _has_saved_progress,
-      _inventory);
+      _inventory,
+      _equipment,
+      _quick_slots);
 }
 
 }  // namespace Net

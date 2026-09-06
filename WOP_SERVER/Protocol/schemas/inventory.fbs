@@ -19,3 +19,32 @@ table InventoryItemEntry {
 table C2S_SaveInventory {
   items: [InventoryItemEntry];
 }
+
+// One equipped item -- EEquipmentSlot as a plain ubyte
+// (0=Helmet/1=Vest/2=Weapon1/3=Weapon2) so this schema doesn't need to know
+// about the client's C++ enum. item_id is the item Data Asset's own object
+// name, same convention as InventoryItemEntry.item_id.
+table EquipmentItemEntry {
+  slot: ubyte;
+  item_id: string;
+}
+
+// Same "always full contents, not a diff" contract as C2S_SaveInventory,
+// for UEquipmentComponent's own separate (not grid-based) storage. No reply.
+table C2S_SaveEquipment {
+  items: [EquipmentItemEntry];
+}
+
+// One quick-slot assignment. item_id is the item Data Asset's own object
+// name, same convention as InventoryItemEntry.item_id.
+table QuickSlotItemEntry {
+  slot_index: ubyte;
+  item_id: string;
+  stack_count: short = 1;
+}
+
+// Same "always full contents, not a diff" contract as C2S_SaveInventory,
+// for UQuickSlotComponent's own separate (not grid-based) storage. No reply.
+table C2S_SaveQuickSlots {
+  items: [QuickSlotItemEntry];
+}

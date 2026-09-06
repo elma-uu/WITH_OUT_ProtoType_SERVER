@@ -47,6 +47,8 @@ union Payload {
   S2C_ItemSpawnState,
   C2S_PlayerDied,
   S2C_PlayerDied,
+  C2S_SaveEquipment,
+  C2S_SaveQuickSlots,
 }
 
 table Packet {

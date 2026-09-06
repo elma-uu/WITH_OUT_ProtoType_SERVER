@@ -46,4 +46,9 @@ table S2C_LoginSuccess {
   // Restored grid inventory contents, same lifecycle as has_saved_progress
   // (empty if the account never saved one).
   inventory: [InventoryItemEntry];
+  // Same lifecycle as inventory above, for UEquipmentComponent's/
+  // UQuickSlotComponent's own separate storage (see C2S_SaveEquipment/
+  // C2S_SaveQuickSlots).
+  equipment: [EquipmentItemEntry];
+  quick_slots: [QuickSlotItemEntry];
 }

@@ -24,6 +24,22 @@ struct C2S_SaveInventory;
 struct C2S_SaveInventoryBuilder;
 struct C2S_SaveInventoryT;
 
+struct EquipmentItemEntry;
+struct EquipmentItemEntryBuilder;
+struct EquipmentItemEntryT;
+
+struct C2S_SaveEquipment;
+struct C2S_SaveEquipmentBuilder;
+struct C2S_SaveEquipmentT;
+
+struct QuickSlotItemEntry;
+struct QuickSlotItemEntryBuilder;
+struct QuickSlotItemEntryT;
+
+struct C2S_SaveQuickSlots;
+struct C2S_SaveQuickSlotsBuilder;
+struct C2S_SaveQuickSlotsT;
+
 struct InventoryItemEntryT : public ::flatbuffers::NativeTable {
   typedef InventoryItemEntry TableType;
   std::string item_id{};
@@ -219,6 +235,331 @@ inline ::flatbuffers::Offset<C2S_SaveInventory> CreateC2S_SaveInventoryDirect(
 
 ::flatbuffers::Offset<C2S_SaveInventory> CreateC2S_SaveInventory(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveInventoryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct EquipmentItemEntryT : public ::flatbuffers::NativeTable {
+  typedef EquipmentItemEntry TableType;
+  uint8_t slot = 0;
+  std::string item_id{};
+};
+
+struct EquipmentItemEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef EquipmentItemEntryT NativeTableType;
+  typedef EquipmentItemEntryBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SLOT = 4,
+    VT_ITEM_ID = 6
+  };
+  uint8_t slot() const {
+    return GetField<uint8_t>(VT_SLOT, 0);
+  }
+  const ::flatbuffers::String *item_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ITEM_ID);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_SLOT, 1) &&
+           VerifyOffset(verifier, VT_ITEM_ID) &&
+           verifier.VerifyString(item_id()) &&
+           verifier.EndTable();
+  }
+  EquipmentItemEntryT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(EquipmentItemEntryT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<EquipmentItemEntry> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const EquipmentItemEntryT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct EquipmentItemEntryBuilder {
+  typedef EquipmentItemEntry Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_slot(uint8_t slot) {
+    fbb_.AddElement<uint8_t>(EquipmentItemEntry::VT_SLOT, slot, 0);
+  }
+  void add_item_id(::flatbuffers::Offset<::flatbuffers::String> item_id) {
+    fbb_.AddOffset(EquipmentItemEntry::VT_ITEM_ID, item_id);
+  }
+  explicit EquipmentItemEntryBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<EquipmentItemEntry> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<EquipmentItemEntry>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<EquipmentItemEntry> CreateEquipmentItemEntry(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t slot = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> item_id = 0) {
+  EquipmentItemEntryBuilder builder_(_fbb);
+  builder_.add_item_id(item_id);
+  builder_.add_slot(slot);
+  return builder_.Finish();
+}
+
+struct EquipmentItemEntry::Traits {
+  using type = EquipmentItemEntry;
+  static auto constexpr Create = CreateEquipmentItemEntry;
+};
+
+inline ::flatbuffers::Offset<EquipmentItemEntry> CreateEquipmentItemEntryDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t slot = 0,
+    const char *item_id = nullptr) {
+  auto item_id__ = item_id ? _fbb.CreateString(item_id) : 0;
+  return ProtoType::Net::CreateEquipmentItemEntry(
+      _fbb,
+      slot,
+      item_id__);
+}
+
+::flatbuffers::Offset<EquipmentItemEntry> CreateEquipmentItemEntry(::flatbuffers::FlatBufferBuilder &_fbb, const EquipmentItemEntryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct C2S_SaveEquipmentT : public ::flatbuffers::NativeTable {
+  typedef C2S_SaveEquipment TableType;
+  std::vector<std::unique_ptr<ProtoType::Net::EquipmentItemEntryT>> items{};
+  C2S_SaveEquipmentT() = default;
+  C2S_SaveEquipmentT(const C2S_SaveEquipmentT &o);
+  C2S_SaveEquipmentT(C2S_SaveEquipmentT&&) FLATBUFFERS_NOEXCEPT = default;
+  C2S_SaveEquipmentT &operator=(C2S_SaveEquipmentT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct C2S_SaveEquipment FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_SaveEquipmentT NativeTableType;
+  typedef C2S_SaveEquipmentBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ITEMS = 4
+  };
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>> *items() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>> *>(VT_ITEMS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ITEMS) &&
+           verifier.VerifyVector(items()) &&
+           verifier.VerifyVectorOfTables(items()) &&
+           verifier.EndTable();
+  }
+  C2S_SaveEquipmentT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_SaveEquipmentT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_SaveEquipment> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveEquipmentT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_SaveEquipmentBuilder {
+  typedef C2S_SaveEquipment Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>>> items) {
+    fbb_.AddOffset(C2S_SaveEquipment::VT_ITEMS, items);
+  }
+  explicit C2S_SaveEquipmentBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_SaveEquipment> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_SaveEquipment>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_SaveEquipment> CreateC2S_SaveEquipment(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>>> items = 0) {
+  C2S_SaveEquipmentBuilder builder_(_fbb);
+  builder_.add_items(items);
+  return builder_.Finish();
+}
+
+struct C2S_SaveEquipment::Traits {
+  using type = C2S_SaveEquipment;
+  static auto constexpr Create = CreateC2S_SaveEquipment;
+};
+
+inline ::flatbuffers::Offset<C2S_SaveEquipment> CreateC2S_SaveEquipmentDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>> *items = nullptr) {
+  auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>>(*items) : 0;
+  return ProtoType::Net::CreateC2S_SaveEquipment(
+      _fbb,
+      items__);
+}
+
+::flatbuffers::Offset<C2S_SaveEquipment> CreateC2S_SaveEquipment(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveEquipmentT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct QuickSlotItemEntryT : public ::flatbuffers::NativeTable {
+  typedef QuickSlotItemEntry TableType;
+  uint8_t slot_index = 0;
+  std::string item_id{};
+  int16_t stack_count = 1;
+};
+
+struct QuickSlotItemEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef QuickSlotItemEntryT NativeTableType;
+  typedef QuickSlotItemEntryBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SLOT_INDEX = 4,
+    VT_ITEM_ID = 6,
+    VT_STACK_COUNT = 8
+  };
+  uint8_t slot_index() const {
+    return GetField<uint8_t>(VT_SLOT_INDEX, 0);
+  }
+  const ::flatbuffers::String *item_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ITEM_ID);
+  }
+  int16_t stack_count() const {
+    return GetField<int16_t>(VT_STACK_COUNT, 1);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_SLOT_INDEX, 1) &&
+           VerifyOffset(verifier, VT_ITEM_ID) &&
+           verifier.VerifyString(item_id()) &&
+           VerifyField<int16_t>(verifier, VT_STACK_COUNT, 2) &&
+           verifier.EndTable();
+  }
+  QuickSlotItemEntryT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(QuickSlotItemEntryT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<QuickSlotItemEntry> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const QuickSlotItemEntryT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct QuickSlotItemEntryBuilder {
+  typedef QuickSlotItemEntry Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_slot_index(uint8_t slot_index) {
+    fbb_.AddElement<uint8_t>(QuickSlotItemEntry::VT_SLOT_INDEX, slot_index, 0);
+  }
+  void add_item_id(::flatbuffers::Offset<::flatbuffers::String> item_id) {
+    fbb_.AddOffset(QuickSlotItemEntry::VT_ITEM_ID, item_id);
+  }
+  void add_stack_count(int16_t stack_count) {
+    fbb_.AddElement<int16_t>(QuickSlotItemEntry::VT_STACK_COUNT, stack_count, 1);
+  }
+  explicit QuickSlotItemEntryBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<QuickSlotItemEntry> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<QuickSlotItemEntry>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<QuickSlotItemEntry> CreateQuickSlotItemEntry(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t slot_index = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> item_id = 0,
+    int16_t stack_count = 1) {
+  QuickSlotItemEntryBuilder builder_(_fbb);
+  builder_.add_item_id(item_id);
+  builder_.add_stack_count(stack_count);
+  builder_.add_slot_index(slot_index);
+  return builder_.Finish();
+}
+
+struct QuickSlotItemEntry::Traits {
+  using type = QuickSlotItemEntry;
+  static auto constexpr Create = CreateQuickSlotItemEntry;
+};
+
+inline ::flatbuffers::Offset<QuickSlotItemEntry> CreateQuickSlotItemEntryDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t slot_index = 0,
+    const char *item_id = nullptr,
+    int16_t stack_count = 1) {
+  auto item_id__ = item_id ? _fbb.CreateString(item_id) : 0;
+  return ProtoType::Net::CreateQuickSlotItemEntry(
+      _fbb,
+      slot_index,
+      item_id__,
+      stack_count);
+}
+
+::flatbuffers::Offset<QuickSlotItemEntry> CreateQuickSlotItemEntry(::flatbuffers::FlatBufferBuilder &_fbb, const QuickSlotItemEntryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct C2S_SaveQuickSlotsT : public ::flatbuffers::NativeTable {
+  typedef C2S_SaveQuickSlots TableType;
+  std::vector<std::unique_ptr<ProtoType::Net::QuickSlotItemEntryT>> items{};
+  C2S_SaveQuickSlotsT() = default;
+  C2S_SaveQuickSlotsT(const C2S_SaveQuickSlotsT &o);
+  C2S_SaveQuickSlotsT(C2S_SaveQuickSlotsT&&) FLATBUFFERS_NOEXCEPT = default;
+  C2S_SaveQuickSlotsT &operator=(C2S_SaveQuickSlotsT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct C2S_SaveQuickSlots FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_SaveQuickSlotsT NativeTableType;
+  typedef C2S_SaveQuickSlotsBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ITEMS = 4
+  };
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>> *items() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>> *>(VT_ITEMS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ITEMS) &&
+           verifier.VerifyVector(items()) &&
+           verifier.VerifyVectorOfTables(items()) &&
+           verifier.EndTable();
+  }
+  C2S_SaveQuickSlotsT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_SaveQuickSlotsT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_SaveQuickSlots> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveQuickSlotsT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_SaveQuickSlotsBuilder {
+  typedef C2S_SaveQuickSlots Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>>> items) {
+    fbb_.AddOffset(C2S_SaveQuickSlots::VT_ITEMS, items);
+  }
+  explicit C2S_SaveQuickSlotsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_SaveQuickSlots> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_SaveQuickSlots>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_SaveQuickSlots> CreateC2S_SaveQuickSlots(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>>> items = 0) {
+  C2S_SaveQuickSlotsBuilder builder_(_fbb);
+  builder_.add_items(items);
+  return builder_.Finish();
+}
+
+struct C2S_SaveQuickSlots::Traits {
+  using type = C2S_SaveQuickSlots;
+  static auto constexpr Create = CreateC2S_SaveQuickSlots;
+};
+
+inline ::flatbuffers::Offset<C2S_SaveQuickSlots> CreateC2S_SaveQuickSlotsDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>> *items = nullptr) {
+  auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>>(*items) : 0;
+  return ProtoType::Net::CreateC2S_SaveQuickSlots(
+      _fbb,
+      items__);
+}
+
+::flatbuffers::Offset<C2S_SaveQuickSlots> CreateC2S_SaveQuickSlots(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveQuickSlotsT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline InventoryItemEntryT *InventoryItemEntry::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<InventoryItemEntryT>();
   UnPackTo(_o.get(), _resolver);
@@ -289,6 +630,139 @@ inline ::flatbuffers::Offset<C2S_SaveInventory> C2S_SaveInventory::Pack(::flatbu
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_SaveInventoryT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateInventoryItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
   return ProtoType::Net::CreateC2S_SaveInventory(
+      _fbb,
+      _items);
+}
+
+inline EquipmentItemEntryT *EquipmentItemEntry::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<EquipmentItemEntryT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void EquipmentItemEntry::UnPackTo(EquipmentItemEntryT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = slot(); _o->slot = _e; }
+  { auto _e = item_id(); if (_e) _o->item_id = _e->str(); }
+}
+
+inline ::flatbuffers::Offset<EquipmentItemEntry> CreateEquipmentItemEntry(::flatbuffers::FlatBufferBuilder &_fbb, const EquipmentItemEntryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return EquipmentItemEntry::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<EquipmentItemEntry> EquipmentItemEntry::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const EquipmentItemEntryT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const EquipmentItemEntryT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _slot = _o->slot;
+  auto _item_id = _o->item_id.empty() ? 0 : _fbb.CreateString(_o->item_id);
+  return ProtoType::Net::CreateEquipmentItemEntry(
+      _fbb,
+      _slot,
+      _item_id);
+}
+
+inline C2S_SaveEquipmentT::C2S_SaveEquipmentT(const C2S_SaveEquipmentT &o) {
+  items.reserve(o.items.size());
+  for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::EquipmentItemEntryT(*items_) : nullptr); }
+}
+
+inline C2S_SaveEquipmentT &C2S_SaveEquipmentT::operator=(C2S_SaveEquipmentT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(items, o.items);
+  return *this;
+}
+
+inline C2S_SaveEquipmentT *C2S_SaveEquipment::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_SaveEquipmentT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_SaveEquipment::UnPackTo(C2S_SaveEquipmentT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::EquipmentItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<C2S_SaveEquipment> CreateC2S_SaveEquipment(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveEquipmentT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_SaveEquipment::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_SaveEquipment> C2S_SaveEquipment::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveEquipmentT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_SaveEquipmentT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::EquipmentItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateEquipmentItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return ProtoType::Net::CreateC2S_SaveEquipment(
+      _fbb,
+      _items);
+}
+
+inline QuickSlotItemEntryT *QuickSlotItemEntry::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<QuickSlotItemEntryT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void QuickSlotItemEntry::UnPackTo(QuickSlotItemEntryT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = slot_index(); _o->slot_index = _e; }
+  { auto _e = item_id(); if (_e) _o->item_id = _e->str(); }
+  { auto _e = stack_count(); _o->stack_count = _e; }
+}
+
+inline ::flatbuffers::Offset<QuickSlotItemEntry> CreateQuickSlotItemEntry(::flatbuffers::FlatBufferBuilder &_fbb, const QuickSlotItemEntryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return QuickSlotItemEntry::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<QuickSlotItemEntry> QuickSlotItemEntry::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const QuickSlotItemEntryT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const QuickSlotItemEntryT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _slot_index = _o->slot_index;
+  auto _item_id = _o->item_id.empty() ? 0 : _fbb.CreateString(_o->item_id);
+  auto _stack_count = _o->stack_count;
+  return ProtoType::Net::CreateQuickSlotItemEntry(
+      _fbb,
+      _slot_index,
+      _item_id,
+      _stack_count);
+}
+
+inline C2S_SaveQuickSlotsT::C2S_SaveQuickSlotsT(const C2S_SaveQuickSlotsT &o) {
+  items.reserve(o.items.size());
+  for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::QuickSlotItemEntryT(*items_) : nullptr); }
+}
+
+inline C2S_SaveQuickSlotsT &C2S_SaveQuickSlotsT::operator=(C2S_SaveQuickSlotsT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(items, o.items);
+  return *this;
+}
+
+inline C2S_SaveQuickSlotsT *C2S_SaveQuickSlots::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_SaveQuickSlotsT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_SaveQuickSlots::UnPackTo(C2S_SaveQuickSlotsT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::QuickSlotItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<C2S_SaveQuickSlots> CreateC2S_SaveQuickSlots(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveQuickSlotsT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_SaveQuickSlots::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_SaveQuickSlots> C2S_SaveQuickSlots::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_SaveQuickSlotsT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_SaveQuickSlotsT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::QuickSlotItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateQuickSlotItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return ProtoType::Net::CreateC2S_SaveQuickSlots(
       _fbb,
       _items);
 }

@@ -48,3 +48,31 @@ table QuickSlotItemEntry {
 table C2S_SaveQuickSlots {
   items: [QuickSlotItemEntry];
 }
+
+// Requests this account's saved SafePlace stash (dbo.PlayerStash) -- sent by
+// AStorageContainer::BeginPlay so the box is populated before the player
+// even opens it. Answered with S2C_StashState, unicast to the requester only
+// (this is per-account data, not something other players should see about
+// each other -- unlike a loot container's shared, world-visible contents).
+// Silently ignored for guest (non-account) sessions, same trust tier as
+// C2S_SaveInventory.
+table C2S_RequestStash {
+}
+
+// Reply to C2S_RequestStash, and also sent whenever this account's stash
+// changes are saved (so multiple SafePlace instances -- e.g. reconnecting --
+// see a consistent view). Reuses InventoryItemEntry: the stash is a grid
+// exactly like the player's own inventory, just stored under a different
+// table (dbo.PlayerStash) and keyed by AccountId instead of being carried on
+// the character.
+table S2C_StashState {
+  items: [InventoryItemEntry];
+}
+
+// Same "always full contents, not a diff" contract as C2S_SaveInventory --
+// sent whenever the player's SafePlace stash grid changes. No reply (the
+// client is the source of truth for its own just-made edit); silently
+// ignored for guest sessions.
+table C2S_SaveStash {
+  items: [InventoryItemEntry];
+}

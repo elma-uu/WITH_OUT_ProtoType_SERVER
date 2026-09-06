@@ -49,6 +49,9 @@ union Payload {
   S2C_PlayerDied,
   C2S_SaveEquipment,
   C2S_SaveQuickSlots,
+  C2S_RequestStash,
+  S2C_StashState,
+  C2S_SaveStash,
 }
 
 table Packet {

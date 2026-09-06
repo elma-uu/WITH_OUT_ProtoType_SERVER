@@ -610,6 +610,67 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_RequestStash:
+            {
+                // Unicast reply, not a broadcast -- this account's stash is
+                // private, unlike a loot container's shared world state (see
+                // C2S_RequestStash's schema comment). Silently ignored for
+                // guest sessions, same trust tier as C2S_SaveInventory --
+                // AStorageContainer just never gets a reply and stays empty.
+                if (accountId_ < 0)
+                    break;
+
+                std::vector<InventoryItemRecord> stashItems;
+                Database::Get().LoadStash(accountId_, stashItems);
+
+                flatbuffers::FlatBufferBuilder fbb;
+                std::vector<flatbuffers::Offset<InventoryItemEntry>> itemOffsets;
+                itemOffsets.reserve(stashItems.size());
+                for (const auto& item : stashItems)
+                {
+                    auto itemIdOffset = fbb.CreateString(item.itemId);
+                    itemOffsets.push_back(CreateInventoryItemEntry(
+                        fbb, itemIdOffset, item.gridX, item.gridY, item.rotated, item.stackCount));
+                }
+                auto itemVector = fbb.CreateVector(itemOffsets);
+                auto state = CreateS2C_StashState(fbb, itemVector);
+                auto reply = CreatePacket(fbb, Payload::S2C_StashState, state.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                            static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            case Payload::C2S_SaveStash:
+            {
+                // Same trust tier as C2S_SaveInventory above -- no reply, no
+                // broadcast, silently ignored for guest sessions.
+                if (accountId_ < 0)
+                    break;
+
+                const auto* req = packet->payload_as_C2S_SaveStash();
+                if (!req || !req->items())
+                    break;
+
+                std::vector<InventoryItemRecord> items;
+                items.reserve(req->items()->size());
+                for (const auto* entry : *req->items())
+                {
+                    if (!entry || !entry->item_id())
+                        continue;
+                    InventoryItemRecord record;
+                    record.itemId = entry->item_id()->str();
+                    record.gridX = entry->grid_x();
+                    record.gridY = entry->grid_y();
+                    record.rotated = entry->rotated();
+                    record.stackCount = entry->stack_count();
+                    items.push_back(std::move(record));
+                }
+
+                Database::Get().SaveStash(accountId_, items);
+                break;
+            }
+
             case Payload::C2S_SetVisible:
             {
                 const auto* req = packet->payload_as_C2S_SetVisible();
@@ -1044,6 +1105,8 @@ namespace Wop
                  type == ProtoType::Net::Payload::C2S_SaveInventory ||
                  type == ProtoType::Net::Payload::C2S_SaveEquipment ||
                  type == ProtoType::Net::Payload::C2S_SaveQuickSlots ||
+                 type == ProtoType::Net::Payload::C2S_RequestStash ||
+                 type == ProtoType::Net::Payload::C2S_SaveStash ||
                  type == ProtoType::Net::Payload::C2S_SetVisible ||
                  type == ProtoType::Net::Payload::C2S_ContainerLootRoll ||
                  type == ProtoType::Net::Payload::C2S_CompanionMoveInput ||

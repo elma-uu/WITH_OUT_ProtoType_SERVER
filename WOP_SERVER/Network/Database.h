@@ -97,6 +97,17 @@ namespace Wop
         bool LoadQuickSlots(int accountId, std::vector<QuickSlotItemRecord>& outItems);
         bool SaveQuickSlots(int accountId, const std::vector<QuickSlotItemRecord>& items);
 
+        /*-------------------
+         SafePlace 창고 (개인 보관함)
+        -------------------*/
+        // Same full-replace-in-one-transaction contract as
+        // LoadInventory/SaveInventory, against dbo.PlayerStash instead of
+        // dbo.PlayerInventoryItems -- see C2S_SaveStash's schema comment.
+        // Reuses InventoryItemRecord: the stash is a grid exactly like the
+        // player's own inventory, just a separate table keyed by AccountId.
+        bool LoadStash(int accountId, std::vector<InventoryItemRecord>& outItems);
+        bool SaveStash(int accountId, const std::vector<InventoryItemRecord>& items);
+
     private:
         Database() = default;
         ~Database();
@@ -105,8 +116,8 @@ namespace Wop
 
         void LogDiag(const char* context, SQLSMALLINT handleType, SQLHANDLE handle) const;
 
-        // Creates dbo.PlayerEquipment/dbo.PlayerQuickSlots if they don't
-        // already exist yet on whatever LocalDB instance this is (unlike
+        // Creates dbo.PlayerEquipment/dbo.PlayerQuickSlots/dbo.PlayerStash if
+        // they don't already exist yet on whatever LocalDB instance this is (unlike
         // Accounts/PlayerProgress/PlayerInventoryItems, which were created
         // by hand and have no migration script at all -- see this
         // project's own lack of a .sql file). Called once from Connect()

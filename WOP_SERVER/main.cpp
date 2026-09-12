@@ -6,6 +6,7 @@
 int main()
 {
     constexpr uint16_t kPort = 7777;
+
     const uint32_t kWorkerThreadCount =
         std::thread::hardware_concurrency() > 0 ? std::thread::hardware_concurrency() : 4;
     constexpr uint32_t kMaxPlayers = 32;

@@ -1,0 +1,47 @@
+include "common.fbs";
+
+namespace ProtoType.Net;
+
+// Sent by an already-logged-in session (see C2S_Login/S2C_LoginSuccess)
+// to ask for a short-lived, single-use ticket proving this account
+// already authenticated -- without a second username/password round
+// trip. C2S_JoinMatch is the other end of this handoff. Part of the
+// Login/Game server split design (매칭 서버 설계): LoginServer and
+// GameServer are still the same process/port today, but this is the
+// exact handoff a real split would use -- only game_server_host/port
+// below would start pointing somewhere else.
+table C2S_RequestMatch {
+}
+
+table S2C_MatchTicket {
+  // Empty host means "same server/port you're already connected to" --
+  // true today; a real Login/Game split would put the actual GameServer
+  // address here instead.
+  game_server_host: string;
+  game_server_port: uint16;
+  ticket: string;
+  expires_at_unix_ms: uint64;
+}
+
+// Sent in place of C2S_Login (same connection today; a brand new one to
+// a separate GameServer once Login/Game are actually split) to join a
+// match using a ticket from S2C_MatchTicket instead of re-sending
+// credentials. Success looks exactly like a normal login
+// (S2C_LoginSuccess, this account's saved progress/inventory restored)
+// and then queues for matchmaking exactly like C2S_Login does -- see
+// Session::FinishAuthenticatedLogin, shared by both paths.
+table C2S_JoinMatch {
+  ticket: string;
+}
+
+enum JoinMatchFailReason : byte {
+  // No such ticket, or it was already consumed, or it expired -- the
+  // protocol doesn't distinguish these (a stolen/replayed/stale ticket
+  // all look the same to whoever's holding it now): request a fresh one
+  // via C2S_RequestMatch.
+  InvalidOrExpiredTicket,
+}
+
+table S2C_JoinMatchFail {
+  reason: JoinMatchFailReason;
+}

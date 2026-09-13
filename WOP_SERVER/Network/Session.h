@@ -116,6 +116,18 @@ namespace Wop
         void ProcessRecvBuffer();
         void EnqueueEcho(const char* data, uint32_t len);
 
+        // Shared tail of a successful C2S_Login (accountId is whatever
+        // Database::Authenticate/Register returned, or -1 for a guest
+        // token-only login) and a successful C2S_JoinMatch (accountId is
+        // whatever the consumed ticket was issued for -- always a real
+        // account, never -1, but the same code path handles both). Sets
+        // accountId_/position_/look_/weaponType_ from this account's saved
+        // progress (or the default spawn if it has none), replies
+        // S2C_LoginSuccess, and queues this session for matchmaking (see
+        // EchoServer::EnqueueForMatch) -- same as every C2S_Login has
+        // always done, just callable from a second place now.
+        void FinishAuthenticatedLogin(int accountId);
+
         // Handles the multiplayer side-effects of Login/MoveInput packets
         // (spawn broadcast, position relay). No-op for any other payload.
         void BroadcastGameplayState(const ProtoType::Net::Packet* packet);

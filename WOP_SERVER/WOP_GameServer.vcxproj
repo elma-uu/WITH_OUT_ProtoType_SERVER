@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{43bef056-8d89-4dce-8328-7db7d16a1941}</ProjectGuid>
-    <RootNamespace>WOPSERVER</RootNamespace>
+    <ProjectGuid>{5cda3d3c-9ab1-4cd0-be0e-631d76c7e075}</ProjectGuid>
+    <RootNamespace>WOPGameServer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -70,6 +70,11 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <!-- Distinct IntDir from WOP_LoginServer.vcxproj: see that project's
+       matching comment. -->
+  <PropertyGroup>
+    <IntDir>$(Platform)\$(Configuration)\GameServer\</IntDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -133,7 +138,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="main_game.cpp" />
+    <ClCompile Include="ServerMain.cpp" />
     <ClCompile Include="Network\EchoServer.cpp" />
     <ClCompile Include="Network\Session.cpp" />
     <ClCompile Include="Network\Room.cpp" />
@@ -144,6 +150,7 @@
     <ClCompile Include="Network\HitDetection.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ServerMain.h" />
     <ClInclude Include="Network\NetCommon.h" />
     <ClInclude Include="Network\RingBuffer.h" />
     <ClInclude Include="Network\RioApi.h" />

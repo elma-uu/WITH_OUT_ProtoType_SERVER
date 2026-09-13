@@ -6,10 +6,48 @@
 #include "RioApi.h"
 #include "Database.h"
 #include "packet.h"
+#include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <random>
 #include <string>
+
+namespace
+{
+    // Login/Game server split (매칭 서버 설계) -- see C2S_RequestMatch's
+    // schema comment. A ticket only needs to be unguessable and single-
+    // use for this project's threat model (not cryptographically hardened
+    // against a determined attacker); 128 bits from the standard library's
+    // own random_device-seeded engine is more than enough headroom for
+    // that, without pulling in a crypto library. Not cached/reseeded
+    // across calls beyond the static engine itself -- ticket issuance is
+    // rare enough (once per match request) that per-call construction cost
+    // doesn't matter.
+    std::string GenerateMatchTicket()
+    {
+        static std::mt19937_64 rng{ std::random_device{}() };
+        const uint64_t hi = rng();
+        const uint64_t lo = rng();
+        char buf[33];
+        std::snprintf(buf, sizeof(buf), "%016llx%016llx",
+            static_cast<unsigned long long>(hi), static_cast<unsigned long long>(lo));
+        return std::string(buf);
+    }
+
+    int64_t NowUnixMs()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+
+    // How long a S2C_MatchTicket stays valid for C2S_JoinMatch to redeem --
+    // short, since the whole round trip (request -> reply -> reconnect
+    // with it) is meant to happen within the same few seconds, not saved
+    // for later.
+    constexpr int64_t kMatchTicketLifetimeMs = 30000;
+}
 
 namespace
 {
@@ -112,6 +150,12 @@ namespace
 
             case Payload::C2S_ItemSpawnRoll:
                 return "item spawn roll";
+
+            case Payload::C2S_RequestMatch:
+                return "request match";
+
+            case Payload::C2S_JoinMatch:
+                return "join match";
 
             default:
                 return EnumNamePayload(packet->payload_type());
@@ -247,14 +291,7 @@ namespace Wop
                 // actually sent credentials (older/test clients that only
                 // send auth_token still log in with no persistence, same as
                 // before this feature existed).
-                bool hasSavedProgress = false;
-                Vec3 savedPosition{};
-                Rotator savedLook{};
-                uint8_t savedWeaponType = 0;
-                std::vector<InventoryItemRecord> savedInventory;
-                std::vector<EquipmentItemRecord> savedEquipment;
-                std::vector<QuickSlotItemRecord> savedQuickSlots;
-
+                int accountId = -1;
                 if (req && req->username() && req->username()->size() > 0
                     && req->password() && Database::Get().IsConnected())
                 {
@@ -262,7 +299,6 @@ namespace Wop
                     const std::string password = req->password()->str();
                     const bool isRegister = req->is_register();
 
-                    int accountId = -1;
                     const AuthResult result = isRegister
                         ? Database::Get().Register(username, password, accountId)
                         : Database::Get().Authenticate(username, password, accountId);
@@ -301,81 +337,9 @@ namespace Wop
                                     static_cast<uint32_t>(fbb.GetSize()));
                         break;
                     }
-
-                    accountId_ = accountId;
-                    hasSavedProgress = Database::Get().LoadProgress(accountId, savedPosition, savedLook, savedWeaponType);
-                    Database::Get().LoadInventory(accountId, savedInventory);
-                    Database::Get().LoadEquipment(accountId, savedEquipment);
-                    Database::Get().LoadQuickSlots(accountId, savedQuickSlots);
                 }
 
-                if (hasSavedProgress)
-                {
-                    position_ = savedPosition;
-                    look_ = savedLook;
-                    weaponType_ = savedWeaponType;
-                }
-                else
-                {
-                    // Cheap deterministic spawn point so players don't stack.
-                    // Grid instead of a single row now that maxPlayers can be
-                    // well above 8 (see main.cpp) -- a plain "id_ % 8" would
-                    // start reusing X positions past the 9th player.
-                    position_ = Vec3(static_cast<float>(id_ % 8) * 200.0f, static_cast<float>((id_ / 8) % 8) * 200.0f, 100.0f);
-                    look_ = Rotator(0.0f, 0.0f, 0.0f);
-                }
-
-                // 1) Tell this client its own player id (+ restored
-                //    position/weapon/inventory, if this account had saved progress).
-                {
-                    flatbuffers::FlatBufferBuilder fbb;
-                    std::vector<flatbuffers::Offset<InventoryItemEntry>> inventoryOffsets;
-                    inventoryOffsets.reserve(savedInventory.size());
-                    for (const auto& item : savedInventory)
-                    {
-                        auto itemIdOffset = fbb.CreateString(item.itemId);
-                        inventoryOffsets.push_back(CreateInventoryItemEntry(
-                            fbb, itemIdOffset, item.gridX, item.gridY, item.rotated, item.stackCount));
-                    }
-                    auto inventoryVector = fbb.CreateVector(inventoryOffsets);
-
-                    std::vector<flatbuffers::Offset<EquipmentItemEntry>> equipmentOffsets;
-                    equipmentOffsets.reserve(savedEquipment.size());
-                    for (const auto& item : savedEquipment)
-                    {
-                        auto itemIdOffset = fbb.CreateString(item.itemId);
-                        equipmentOffsets.push_back(CreateEquipmentItemEntry(fbb, item.slot, itemIdOffset));
-                    }
-                    auto equipmentVector = fbb.CreateVector(equipmentOffsets);
-
-                    std::vector<flatbuffers::Offset<QuickSlotItemEntry>> quickSlotOffsets;
-                    quickSlotOffsets.reserve(savedQuickSlots.size());
-                    for (const auto& item : savedQuickSlots)
-                    {
-                        auto itemIdOffset = fbb.CreateString(item.itemId);
-                        quickSlotOffsets.push_back(CreateQuickSlotItemEntry(fbb, item.slotIndex, itemIdOffset, item.stackCount));
-                    }
-                    auto quickSlotVector = fbb.CreateVector(quickSlotOffsets);
-
-                    auto success = CreateS2C_LoginSuccess(fbb, id_, &position_, &look_, weaponType_, hasSavedProgress,
-                        inventoryVector, equipmentVector, quickSlotVector);
-                    auto reply = CreatePacket(fbb, Payload::S2C_LoginSuccess, success.Union());
-                    FinishSizePrefixedPacketBuffer(fbb, reply);
-                    EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                                static_cast<uint32_t>(fbb.GetSize()));
-                }
-
-                // Multiplayer roster reveal ("who else is here", replayed
-                // door states, "I just joined" broadcast) doesn't happen
-                // here anymore -- login and room membership are two
-                // separate events now that sessions are grouped into small
-                // squads first (see EchoServer::EnqueueForMatch/
-                // Matchmaker.h): this session might not get a Room the
-                // instant login succeeds, if nobody else is queued yet.
-                // Room::AnnounceNewMember (called from Room::AddSession)
-                // does all of that instead, whenever this session actually
-                // ends up in a Room.
-                server_.EnqueueForMatch(shared_from_this());
+                FinishAuthenticatedLogin(accountId);
                 break;
             }
 
@@ -1108,9 +1072,152 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_RequestMatch:
+            {
+                // Only a session already authenticated against a real
+                // account can be issued a ticket -- PendingMatchTicket's
+                // AccountId column has nothing to point at for a guest
+                // (token-only) login. Silently ignored, same trust tier as
+                // C2S_SaveInventory for a guest.
+                if (accountId_ < 0)
+                    break;
+
+                const std::string ticket = GenerateMatchTicket();
+                const int64_t expiresAt = NowUnixMs() + kMatchTicketLifetimeMs;
+                if (!Database::Get().CreateMatchTicket(accountId_, ticket, expiresAt))
+                    break; // DB unavailable -- client's request just times out client-side
+
+                flatbuffers::FlatBufferBuilder fbb;
+                // Empty host: LoginServer and GameServer are still the same
+                // process/port -- see S2C_MatchTicket's schema comment.
+                auto hostOffset = fbb.CreateString("");
+                auto ticketOffset = fbb.CreateString(ticket);
+                auto msg = CreateS2C_MatchTicket(fbb, hostOffset, /*game_server_port*/ 0,
+                    ticketOffset, static_cast<uint64_t>(expiresAt));
+                auto reply = CreatePacket(fbb, Payload::S2C_MatchTicket, msg.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                            static_cast<uint32_t>(fbb.GetSize()));
+                break;
+            }
+
+            case Payload::C2S_JoinMatch:
+            {
+                const auto* req = packet->payload_as_C2S_JoinMatch();
+                if (!req || !req->ticket())
+                    break;
+
+                int ticketAccountId = -1;
+                if (!Database::Get().ConsumeMatchTicket(req->ticket()->str(), NowUnixMs(), ticketAccountId))
+                {
+                    flatbuffers::FlatBufferBuilder fbb;
+                    auto fail = CreateS2C_JoinMatchFail(fbb, JoinMatchFailReason::InvalidOrExpiredTicket);
+                    auto reply = CreatePacket(fbb, Payload::S2C_JoinMatchFail, fail.Union());
+                    FinishSizePrefixedPacketBuffer(fbb, reply);
+                    EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                static_cast<uint32_t>(fbb.GetSize()));
+                    break;
+                }
+
+                // Same as a successful C2S_Login from here: loads this
+                // account's saved progress/inventory, replies
+                // S2C_LoginSuccess, and queues for matchmaking.
+                FinishAuthenticatedLogin(ticketAccountId);
+                break;
+            }
+
             default:
                 break;
         }
+    }
+
+    void Session::FinishAuthenticatedLogin(int accountId)
+    {
+        using namespace ProtoType::Net;
+
+        accountId_ = accountId;
+
+        bool hasSavedProgress = false;
+        Vec3 savedPosition{};
+        Rotator savedLook{};
+        uint8_t savedWeaponType = 0;
+        std::vector<InventoryItemRecord> savedInventory;
+        std::vector<EquipmentItemRecord> savedEquipment;
+        std::vector<QuickSlotItemRecord> savedQuickSlots;
+
+        if (accountId_ >= 0)
+        {
+            hasSavedProgress = Database::Get().LoadProgress(accountId_, savedPosition, savedLook, savedWeaponType);
+            Database::Get().LoadInventory(accountId_, savedInventory);
+            Database::Get().LoadEquipment(accountId_, savedEquipment);
+            Database::Get().LoadQuickSlots(accountId_, savedQuickSlots);
+        }
+
+        if (hasSavedProgress)
+        {
+            position_ = savedPosition;
+            look_ = savedLook;
+            weaponType_ = savedWeaponType;
+        }
+        else
+        {
+            // Cheap deterministic spawn point so players don't stack. Grid
+            // instead of a single row now that maxPlayers can be well
+            // above 8 (see main.cpp) -- a plain "id_ % 8" would start
+            // reusing X positions past the 9th player.
+            position_ = Vec3(static_cast<float>(id_ % 8) * 200.0f, static_cast<float>((id_ / 8) % 8) * 200.0f, 100.0f);
+            look_ = Rotator(0.0f, 0.0f, 0.0f);
+        }
+
+        // Tell this client its own player id (+ restored position/weapon/
+        // inventory, if this account had saved progress).
+        {
+            flatbuffers::FlatBufferBuilder fbb;
+            std::vector<flatbuffers::Offset<InventoryItemEntry>> inventoryOffsets;
+            inventoryOffsets.reserve(savedInventory.size());
+            for (const auto& item : savedInventory)
+            {
+                auto itemIdOffset = fbb.CreateString(item.itemId);
+                inventoryOffsets.push_back(CreateInventoryItemEntry(
+                    fbb, itemIdOffset, item.gridX, item.gridY, item.rotated, item.stackCount));
+            }
+            auto inventoryVector = fbb.CreateVector(inventoryOffsets);
+
+            std::vector<flatbuffers::Offset<EquipmentItemEntry>> equipmentOffsets;
+            equipmentOffsets.reserve(savedEquipment.size());
+            for (const auto& item : savedEquipment)
+            {
+                auto itemIdOffset = fbb.CreateString(item.itemId);
+                equipmentOffsets.push_back(CreateEquipmentItemEntry(fbb, item.slot, itemIdOffset));
+            }
+            auto equipmentVector = fbb.CreateVector(equipmentOffsets);
+
+            std::vector<flatbuffers::Offset<QuickSlotItemEntry>> quickSlotOffsets;
+            quickSlotOffsets.reserve(savedQuickSlots.size());
+            for (const auto& item : savedQuickSlots)
+            {
+                auto itemIdOffset = fbb.CreateString(item.itemId);
+                quickSlotOffsets.push_back(CreateQuickSlotItemEntry(fbb, item.slotIndex, itemIdOffset, item.stackCount));
+            }
+            auto quickSlotVector = fbb.CreateVector(quickSlotOffsets);
+
+            auto success = CreateS2C_LoginSuccess(fbb, id_, &position_, &look_, weaponType_, hasSavedProgress,
+                inventoryVector, equipmentVector, quickSlotVector);
+            auto reply = CreatePacket(fbb, Payload::S2C_LoginSuccess, success.Union());
+            FinishSizePrefixedPacketBuffer(fbb, reply);
+            EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                        static_cast<uint32_t>(fbb.GetSize()));
+        }
+
+        // Multiplayer roster reveal ("who else is here", replayed door
+        // states, "I just joined" broadcast) doesn't happen here -- login/
+        // ticket-join and room membership are two separate events now that
+        // sessions are grouped into small squads first (see EchoServer::
+        // EnqueueForMatch/Matchmaker.h): this session might not get a Room
+        // the instant this succeeds, if nobody else is queued yet. Room::
+        // AnnounceNewMember (called from Room::AddSession) does all of
+        // that instead, whenever this session actually ends up in a Room.
+        server_.EnqueueForMatch(shared_from_this());
     }
 
     void Session::ResolveAndBroadcastHit(const std::shared_ptr<Room>& room, const ProtoType::Net::Vec3& origin, const ProtoType::Net::Vec3& direction, uint8_t weaponSlot)
@@ -1222,7 +1329,9 @@ namespace Wop
                  type == ProtoType::Net::Payload::C2S_EnemyRegister ||
                  type == ProtoType::Net::Payload::C2S_InteractRequest ||
                  type == ProtoType::Net::Payload::C2S_ItemSpawnRoll ||
-                 type == ProtoType::Net::Payload::C2S_PlayerDied);
+                 type == ProtoType::Net::Payload::C2S_PlayerDied ||
+                 type == ProtoType::Net::Payload::C2S_RequestMatch ||
+                 type == ProtoType::Net::Payload::C2S_JoinMatch);
             if (!skipSelfEcho)
                 EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

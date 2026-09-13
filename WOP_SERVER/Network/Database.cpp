@@ -187,6 +187,18 @@ namespace Wop
               "GridY SMALLINT NOT NULL DEFAULT 0, "
               "IsRotated BIT NOT NULL DEFAULT 0, "
               "StackCount SMALLINT NOT NULL DEFAULT 1)" },
+            // Login/Game server split (매칭 서버 설계) -- see
+            // CreateMatchTicket/ConsumeMatchTicket. TicketId is the
+            // primary key (not an identity column): the caller generates
+            // a random, effectively-unguessable string itself, since the
+            // whole point is a value nobody else could produce without
+            // being handed it.
+            { "PendingMatchTicket",
+              "CREATE TABLE dbo.PendingMatchTicket ("
+              "TicketId VARCHAR(64) PRIMARY KEY, "
+              "AccountId INT NOT NULL, "
+              "ExpiresAtUnixMs BIGINT NOT NULL, "
+              "Consumed BIT NOT NULL DEFAULT 0)" },
         };
 
         for (const TableDef& table : tables)
@@ -1051,5 +1063,83 @@ namespace Wop
         SQLSetConnectAttr(hdbc_, SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_ON), 0);
 
         return ok;
+    }
+
+    bool Database::CreateMatchTicket(int accountId, const std::string& ticket, int64_t expiresAtUnixMs)
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (!connected_)
+            return false;
+
+        SQLHSTMT stmt = SQL_NULL_HSTMT;
+        SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &stmt);
+        StmtGuard stmtGuard(stmt);
+
+        SQLINTEGER accId = accountId;
+        SQLBIGINT expiresAt = expiresAtUnixMs;
+        SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, ticket.size(), 0,
+            const_cast<char*>(ticket.c_str()), 0, nullptr);
+        SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+        SQLBindParameter(stmt, 3, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_BIGINT, 0, 0, &expiresAt, 0, nullptr);
+
+        const SQLRETURN ret = SQLExecDirectA(stmt,
+            const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                "INSERT INTO dbo.PendingMatchTicket (TicketId, AccountId, ExpiresAtUnixMs, Consumed) VALUES (?, ?, ?, 0)")),
+            SQL_NTS);
+        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+        {
+            LogDiag("CreateMatchTicket: INSERT", SQL_HANDLE_STMT, stmt);
+            return false;
+        }
+        return true;
+    }
+
+    bool Database::ConsumeMatchTicket(const std::string& ticket, int64_t nowUnixMs, int& outAccountId)
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (!connected_)
+            return false;
+
+        SQLHSTMT stmt = SQL_NULL_HSTMT;
+        SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &stmt);
+        StmtGuard stmtGuard(stmt);
+
+        SQLBIGINT now = nowUnixMs;
+        SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, ticket.size(), 0,
+            const_cast<char*>(ticket.c_str()), 0, nullptr);
+        SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_BIGINT, 0, 0, &now, 0, nullptr);
+
+        // OUTPUT INSERTED.AccountId, not a separate SELECT afterward: the
+        // UPDATE's WHERE (Consumed = 0 AND not expired) and the flip to
+        // Consumed = 1 happen as one atomic statement, so two simultaneous
+        // C2S_JoinMatch calls with the same ticket can't both read
+        // "unconsumed" and both succeed.
+        const SQLRETURN ret = SQLExecDirectA(stmt,
+            const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                "UPDATE dbo.PendingMatchTicket SET Consumed = 1 "
+                "OUTPUT INSERTED.AccountId "
+                "WHERE TicketId = ? AND Consumed = 0 AND ExpiresAtUnixMs > ?")),
+            SQL_NTS);
+        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+        {
+            LogDiag("ConsumeMatchTicket: UPDATE", SQL_HANDLE_STMT, stmt);
+            return false;
+        }
+
+        const SQLRETURN fetchRet = SQLFetch(stmt);
+        if (fetchRet == SQL_NO_DATA)
+            return false; // no such ticket, already consumed, or expired
+
+        if (fetchRet != SQL_SUCCESS && fetchRet != SQL_SUCCESS_WITH_INFO)
+        {
+            LogDiag("ConsumeMatchTicket: fetch", SQL_HANDLE_STMT, stmt);
+            return false;
+        }
+
+        SQLINTEGER accId = 0;
+        SQLLEN indicator = 0;
+        SQLGetData(stmt, 1, SQL_C_LONG, &accId, 0, &indicator);
+        outAccountId = static_cast<int>(accId);
+        return true;
     }
 }

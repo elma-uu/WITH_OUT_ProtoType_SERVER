@@ -3,6 +3,7 @@
 #include "common.h"
 #include <sql.h>
 #include <sqlext.h>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -111,6 +112,25 @@ namespace Wop
         // saved/loaded separately.
         bool LoadStash(int accountId, int stashIndex, std::vector<InventoryItemRecord>& outItems);
         bool SaveStash(int accountId, int stashIndex, const std::vector<InventoryItemRecord>& items);
+
+        /*-------------------
+         매치 티켓 (Login → Game 서버 핸드오프, 매칭 서버 설계)
+        -------------------*/
+        // Short-lived, single-use proof that `accountId` already
+        // authenticated on this server run -- see C2S_RequestMatch's
+        // schema comment. A real Login/Game server split would issue
+        // these on the LoginServer and consume them on a separate
+        // GameServer process, sharing only this DB; today they're still
+        // the same process, but the round trip already works identically.
+        bool CreateMatchTicket(int accountId, const std::string& ticket, int64_t expiresAtUnixMs);
+
+        // Atomically checks the ticket exists, isn't already consumed, and
+        // hasn't expired as of nowUnixMs, and if so marks it consumed and
+        // returns the account it was issued for. One UPDATE with an OUTPUT
+        // clause (not a SELECT then a separate UPDATE) so two simultaneous
+        // C2S_JoinMatch attempts with the same (stolen/replayed) ticket
+        // can't both succeed.
+        bool ConsumeMatchTicket(const std::string& ticket, int64_t nowUnixMs, int& outAccountId);
 
     private:
         Database() = default;

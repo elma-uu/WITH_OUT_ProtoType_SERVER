@@ -7,6 +7,7 @@ include "interact.fbs";
 include "inventory.fbs";
 include "companion.fbs";
 include "enemy.fbs";
+include "match.fbs";
 
 namespace ProtoType.Net;
 
@@ -54,6 +55,10 @@ union Payload {
   C2S_SaveStash,
   C2S_DropItem,
   S2C_ItemDropped,
+  C2S_RequestMatch,
+  S2C_MatchTicket,
+  C2S_JoinMatch,
+  S2C_JoinMatchFail,
 }
 
 table Packet {

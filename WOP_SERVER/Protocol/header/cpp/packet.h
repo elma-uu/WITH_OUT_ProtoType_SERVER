@@ -20,6 +20,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
 #include "inventory.h"
 #include "item.h"
 #include "login.h"
+#include "match.h"
 #include "movement.h"
 #include "player.h"
 
@@ -75,11 +76,15 @@ enum class Payload : uint8_t {
   C2S_SaveStash = 41,
   C2S_DropItem = 42,
   S2C_ItemDropped = 43,
+  C2S_RequestMatch = 44,
+  S2C_MatchTicket = 45,
+  C2S_JoinMatch = 46,
+  S2C_JoinMatchFail = 47,
   MIN = NONE,
-  MAX = S2C_ItemDropped
+  MAX = S2C_JoinMatchFail
 };
 
-inline const Payload (&EnumValuesPayload())[44] {
+inline const Payload (&EnumValuesPayload())[48] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -124,13 +129,17 @@ inline const Payload (&EnumValuesPayload())[44] {
     Payload::S2C_StashState,
     Payload::C2S_SaveStash,
     Payload::C2S_DropItem,
-    Payload::S2C_ItemDropped
+    Payload::S2C_ItemDropped,
+    Payload::C2S_RequestMatch,
+    Payload::S2C_MatchTicket,
+    Payload::C2S_JoinMatch,
+    Payload::S2C_JoinMatchFail
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[45] = {
+  static const char * const names[49] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -175,13 +184,17 @@ inline const char * const *EnumNamesPayload() {
     "C2S_SaveStash",
     "C2S_DropItem",
     "S2C_ItemDropped",
+    "C2S_RequestMatch",
+    "S2C_MatchTicket",
+    "C2S_JoinMatch",
+    "S2C_JoinMatchFail",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_ItemDropped)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_JoinMatchFail)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -362,6 +375,22 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_ItemDropped> {
   static const Payload enum_value = Payload::S2C_ItemDropped;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_RequestMatch> {
+  static const Payload enum_value = Payload::C2S_RequestMatch;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_MatchTicket> {
+  static const Payload enum_value = Payload::S2C_MatchTicket;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::C2S_JoinMatch> {
+  static const Payload enum_value = Payload::C2S_JoinMatch;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_JoinMatchFail> {
+  static const Payload enum_value = Payload::S2C_JoinMatchFail;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -536,6 +565,22 @@ template<> struct PayloadUnionTraits<ProtoType::Net::C2S_DropItemT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_ItemDroppedT> {
   static const Payload enum_value = Payload::S2C_ItemDropped;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_RequestMatchT> {
+  static const Payload enum_value = Payload::C2S_RequestMatch;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_MatchTicketT> {
+  static const Payload enum_value = Payload::S2C_MatchTicket;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_JoinMatchT> {
+  static const Payload enum_value = Payload::C2S_JoinMatch;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_JoinMatchFailT> {
+  static const Payload enum_value = Payload::S2C_JoinMatchFail;
 };
 
 struct PayloadUnion {
@@ -912,6 +957,38 @@ struct PayloadUnion {
     return type == Payload::S2C_ItemDropped ?
       reinterpret_cast<const ProtoType::Net::S2C_ItemDroppedT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_RequestMatchT *AsC2S_RequestMatch() {
+    return type == Payload::C2S_RequestMatch ?
+      reinterpret_cast<ProtoType::Net::C2S_RequestMatchT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_RequestMatchT *AsC2S_RequestMatch() const {
+    return type == Payload::C2S_RequestMatch ?
+      reinterpret_cast<const ProtoType::Net::C2S_RequestMatchT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_MatchTicketT *AsS2C_MatchTicket() {
+    return type == Payload::S2C_MatchTicket ?
+      reinterpret_cast<ProtoType::Net::S2C_MatchTicketT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_MatchTicketT *AsS2C_MatchTicket() const {
+    return type == Payload::S2C_MatchTicket ?
+      reinterpret_cast<const ProtoType::Net::S2C_MatchTicketT *>(value) : nullptr;
+  }
+  ProtoType::Net::C2S_JoinMatchT *AsC2S_JoinMatch() {
+    return type == Payload::C2S_JoinMatch ?
+      reinterpret_cast<ProtoType::Net::C2S_JoinMatchT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_JoinMatchT *AsC2S_JoinMatch() const {
+    return type == Payload::C2S_JoinMatch ?
+      reinterpret_cast<const ProtoType::Net::C2S_JoinMatchT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_JoinMatchFailT *AsS2C_JoinMatchFail() {
+    return type == Payload::S2C_JoinMatchFail ?
+      reinterpret_cast<ProtoType::Net::S2C_JoinMatchFailT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_JoinMatchFailT *AsS2C_JoinMatchFail() const {
+    return type == Payload::S2C_JoinMatchFail ?
+      reinterpret_cast<const ProtoType::Net::S2C_JoinMatchFailT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -1067,6 +1144,18 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::S2C_ItemDropped *payload_as_S2C_ItemDropped() const {
     return payload_type() == ProtoType::Net::Payload::S2C_ItemDropped ? static_cast<const ProtoType::Net::S2C_ItemDropped *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_RequestMatch *payload_as_C2S_RequestMatch() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_RequestMatch ? static_cast<const ProtoType::Net::C2S_RequestMatch *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_MatchTicket *payload_as_S2C_MatchTicket() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_MatchTicket ? static_cast<const ProtoType::Net::S2C_MatchTicket *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_JoinMatch *payload_as_C2S_JoinMatch() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_JoinMatch ? static_cast<const ProtoType::Net::C2S_JoinMatch *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_JoinMatchFail *payload_as_S2C_JoinMatchFail() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_JoinMatchFail ? static_cast<const ProtoType::Net::S2C_JoinMatchFail *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -1251,6 +1340,22 @@ template<> inline const ProtoType::Net::C2S_DropItem *Packet::payload_as<ProtoTy
 
 template<> inline const ProtoType::Net::S2C_ItemDropped *Packet::payload_as<ProtoType::Net::S2C_ItemDropped>() const {
   return payload_as_S2C_ItemDropped();
+}
+
+template<> inline const ProtoType::Net::C2S_RequestMatch *Packet::payload_as<ProtoType::Net::C2S_RequestMatch>() const {
+  return payload_as_C2S_RequestMatch();
+}
+
+template<> inline const ProtoType::Net::S2C_MatchTicket *Packet::payload_as<ProtoType::Net::S2C_MatchTicket>() const {
+  return payload_as_S2C_MatchTicket();
+}
+
+template<> inline const ProtoType::Net::C2S_JoinMatch *Packet::payload_as<ProtoType::Net::C2S_JoinMatch>() const {
+  return payload_as_C2S_JoinMatch();
+}
+
+template<> inline const ProtoType::Net::S2C_JoinMatchFail *Packet::payload_as<ProtoType::Net::S2C_JoinMatchFail>() const {
+  return payload_as_S2C_JoinMatchFail();
 }
 
 struct PacketBuilder {
@@ -1498,6 +1603,22 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemDropped *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_RequestMatch: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_RequestMatch *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_MatchTicket: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_MatchTicket *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::C2S_JoinMatch: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_JoinMatch *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_JoinMatchFail: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_JoinMatchFail *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -1690,6 +1811,22 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemDropped *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_RequestMatch: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_RequestMatch *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_MatchTicket: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_MatchTicket *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::C2S_JoinMatch: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_JoinMatch *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_JoinMatchFail: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_JoinMatchFail *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -1869,6 +2006,22 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemDroppedT *>(value);
       return CreateS2C_ItemDropped(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_RequestMatch: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_RequestMatchT *>(value);
+      return CreateC2S_RequestMatch(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_MatchTicket: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_MatchTicketT *>(value);
+      return CreateS2C_MatchTicket(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::C2S_JoinMatch: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_JoinMatchT *>(value);
+      return CreateC2S_JoinMatch(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_JoinMatchFail: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_JoinMatchFailT *>(value);
+      return CreateS2C_JoinMatchFail(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -2045,6 +2198,22 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_ItemDropped: {
       value = new ProtoType::Net::S2C_ItemDroppedT(*reinterpret_cast<ProtoType::Net::S2C_ItemDroppedT *>(u.value));
+      break;
+    }
+    case Payload::C2S_RequestMatch: {
+      value = new ProtoType::Net::C2S_RequestMatchT(*reinterpret_cast<ProtoType::Net::C2S_RequestMatchT *>(u.value));
+      break;
+    }
+    case Payload::S2C_MatchTicket: {
+      value = new ProtoType::Net::S2C_MatchTicketT(*reinterpret_cast<ProtoType::Net::S2C_MatchTicketT *>(u.value));
+      break;
+    }
+    case Payload::C2S_JoinMatch: {
+      value = new ProtoType::Net::C2S_JoinMatchT(*reinterpret_cast<ProtoType::Net::C2S_JoinMatchT *>(u.value));
+      break;
+    }
+    case Payload::S2C_JoinMatchFail: {
+      value = new ProtoType::Net::S2C_JoinMatchFailT(*reinterpret_cast<ProtoType::Net::S2C_JoinMatchFailT *>(u.value));
       break;
     }
     default:
@@ -2266,6 +2435,26 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_ItemDropped: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_ItemDroppedT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_RequestMatch: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_RequestMatchT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_MatchTicket: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_MatchTicketT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_JoinMatch: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_JoinMatchT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_JoinMatchFail: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_JoinMatchFailT *>(value);
       delete ptr;
       break;
     }

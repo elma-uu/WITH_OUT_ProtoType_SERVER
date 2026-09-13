@@ -2,29 +2,31 @@
 #include "NetCommon.h"
 #include "Session.h"
 #include "Database.h"
-#include "EnemyAI.h"
+#include "Room.h"
+#include "Matchmaker.h"
 #include <atomic>
+#include <chrono>
+#include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
 
 namespace Wop
 {
-    // One loose item dropped in the open world by an AItemSpawnPoint's
-    // roll -- see EchoServer::ClaimItemSpawnRoll. Distinct from
-    // InventoryItemRecord (Database.h): that one is a grid-slot entry,
-    // this is a fixed world position, and these are never persisted to
-    // the DB (stage props, not player-owned, same as container loot).
-    struct WorldItemRecord
-    {
-        std::string itemId;
-        float posX = 0.0f;
-        float posY = 0.0f;
-        float posZ = 0.0f;
-        int16_t stackCount = 1;
-    };
-
+    // Accepts TCP connections and owns the RIO/IOCP plumbing -- all actual
+    // gameplay state (loot/doors/enemies, and who broadcasts to whom) lives
+    // on Room now, not here (see Room.h). Step 2 of the Login/Game server
+    // separation (매칭 서버 설계): a logged-in session no longer joins a
+    // shared world automatically -- EnqueueForMatch (called from Session's
+    // own C2S_Login handling) either slots it into an existing room with
+    // room to spare (a "late join", same as today's single-shared-world
+    // behavior -- see door_late_join_test) or queues it with matchmaker_,
+    // which groups waiting sessions into a fresh 2~4-person Room the
+    // instant enough have queued (or, failing that, after a short solo
+    // timeout -- see Matchmaker.h). Rooms are created/destroyed on demand
+    // now instead of the single server-lifetime defaultRoom_ step 1 used.
     class EchoServer
     {
     public:
@@ -43,127 +45,31 @@ namespace Wop
         bool Start();
         void Stop();
 
-        /*-------------------
-         멀티플레이어 브로드캐스트 지원
-        -------------------*/
-        // Sends `data` to every connected session except `excludeSessionId`.
-        void Broadcast(uint32_t excludeSessionId, const char* data, uint32_t len);
-
-        // Snapshot of every currently-connected session other than
-        // `excludeSessionId`, for building a "who's already here" roster.
-        std::vector<std::shared_ptr<Session>> SnapshotOtherSessions(uint32_t excludeSessionId);
-
-        /*-------------------
-         월드 아이템 상태 (컨테이너 루팅 동기화)
-        -------------------*/
-        // World state, not per-session state: every placed ALootContainer
-        // rolls its own contents locally and reports them here the first
-        // time a client's local instance sees them this server run. The
-        // FIRST roll for a given containerId wins and is returned to every
-        // caller (this one and every later one) from then on -- see
-        // Session.cpp's C2S_ContainerLootRoll case, which broadcasts
-        // whatever this returns back out as S2C_ContainerLootState so every
-        // client ends up agreeing on the same contents instead of each
-        // independently re-rolling. Lives for the server process's lifetime
-        // (not persisted to the DB -- these are stage props, not player-owned).
-        const std::vector<InventoryItemRecord>& ClaimContainerLoot(
-            uint32_t containerId, std::vector<InventoryItemRecord> proposed);
-
-        // Same first-roll-wins idea as ClaimContainerLoot above, for an
-        // AItemSpawnPoint's scattered world drops instead of a grid
-        // container's contents -- see Session.cpp's C2S_ItemSpawnRoll case.
-        const std::vector<WorldItemRecord>& ClaimItemSpawnRoll(
-            uint32_t spawnPointId, std::vector<WorldItemRecord> proposed);
-
-        /*-------------------
-         문 상태 (늦참 동기화)
-        -------------------*/
-        // Doors are a simple relay, not an arbitrated roll (see
-        // Session.cpp's C2S_InteractRequest case) -- there's no "right
-        // answer" to agree on, just whatever the last toggle said. But a
-        // client joining mid-session still needs to know that LAST answer,
-        // not just future toggles, or an already-open door renders shut on
-        // their screen until someone happens to toggle it again. Recorded
-        // here purely so C2S_Login's roster loop can replay it; doors that
-        // were never toggled simply have no entry (closed is the default
-        // every client already spawns with, nothing to replay). Lives for
-        // the server process's lifetime, same as container/item-spawn
-        // rolls -- not persisted to the DB.
-        void SetDoorState(uint32_t doorId, bool isOpen);
-        std::vector<std::pair<uint32_t, bool>> SnapshotDoorStates() const;
-
-        // First PICKUP of a given ground item wins, not first roll -- this
-        // arbitrates ADropItem::OnInteract (net_slot_id, stable across every
-        // client's copy of the same spawned/rolled item -- see DropItem.h's
-        // NetSlotId comment) rather than what the item even is. Without
-        // this, two players interacting with the same ground item in the
-        // same instant would each add it to their own inventory (a
-        // duplication bug), the same race ClaimContainerLoot/
-        // ClaimItemSpawnRoll prevent for WHAT spawns, just one step later
-        // in the item's life. Returns true only for the FIRST caller for a
-        // given netSlotId; every later caller (including a retry from the
-        // same session) is denied. See Session.cpp's C2S_InteractRequest
-        // case (InteractType::Loot).
-        bool ClaimItemPickup(uint32_t netSlotId, uint32_t sessionId);
-
-        /*-------------------
-         적(좀비) AI 소유권
-        -------------------*/
-        // Enemies are level content, not owned by any one session the way a
-        // player or companion is -- but only ONE client's local behavior
-        // tree/pathing should actually be "the" simulation for a given
-        // enemy, or every client would see it doing something different.
-        // The first client to ask wins; see Session.cpp's
-        // C2S_EnemyClaimRequest case. Returns true if sessionId now owns
-        // enemyId (either it just won the claim, or it already owned it).
-        bool ClaimEnemy(uint32_t enemyId, uint32_t sessionId);
-
-        // Releases every enemy sessionId owned (called from
-        // UnregisterSession on disconnect). Returns the released enemy ids
-        // so the caller can broadcast S2C_EnemyOwnerLeft for each -- the
-        // enemy itself keeps existing, it just needs a new driver.
-        std::vector<uint32_t> ReleaseEnemiesOwnedBy(uint32_t sessionId);
-
-        // The still-connected session currently driving enemyId's AI, for
-        // relaying C2S_EnemyDamage to it (see that message's schema
-        // comment). nullptr if unclaimed or the owner already disconnected.
-        std::shared_ptr<Session> FindEnemyOwnerSession(uint32_t enemyId);
-
-        /*-------------------
-         서버 권위 적(좀비) AI (멀티 맵 전용)
-        -------------------*/
         // Loads the 2D obstacle boxes a multiplayer map's blocking geometry
         // was exported to (see ExportLevelObstaclesCommandlet on the
         // client side). Safe to call even if the file doesn't exist yet --
         // enemies just move in straight lines until it does. Call before
-        // Start() (or any time; obstacles are only read by the AI tick).
+        // Start() (or any time). Stored and applied to every Room created
+        // from here on (see CreateRoom) -- there's only ever one Multi map's
+        // worth of geometry today, unlike Rooms themselves there's no
+        // per-room variant of this yet.
         void LoadEnemyObstacles(const std::string& path);
 
-        // Registers enemyId with the server-driven AI (first reporter's
-        // starting stats win) -- see C2S_EnemyRegister's schema comment.
-        void RegisterServerEnemy(uint32_t enemyId, const FEnemyAiRecord& initial);
-
-        // Applies damage directly to a server-driven enemy. Returns false
-        // if enemyId isn't server-driven (Session::BroadcastGameplayState
-        // should fall back to the client-ownership relay in that case).
-        bool ApplyServerEnemyDamage(uint32_t enemyId, float damage);
-
-        // Forgets every claim this server run has accumulated for container
-        // loot/item spawns/pickups/doors/enemies -- see UnregisterSession's
-        // old comment (kept here) for why an un-expiring claim otherwise
-        // means the map never sees fresh content again. Reset trigger is
-        // "no VISIBLE session remains" (Session::IsVisible(), which tracks
-        // "currently in a Multi map" -- see its own comment), NOT "the
-        // server has zero connections" -- a Multi map that everyone leaves
-        // (for SafePlace/Single, or by disconnecting) should reset even
-        // while other people stay connected elsewhere. Called from
-        // UnregisterSession (a disconnect) and from Session's
-        // C2S_SetVisible(false) handler (left the Multi map without
-        // disconnecting) -- either can be the one that empties it out.
-        void ResetWorldStateIfMultiMapEmpty();
+        // Called once by Session, right after a successful C2S_Login (see
+        // that case's comment) -- NOT at connection time anymore. Joins an
+        // existing room with room to spare if one exists (a "late join":
+        // see this class's own header comment), otherwise queues `session`
+        // with matchmaker_ to be grouped into a fresh squad.
+        void EnqueueForMatch(std::shared_ptr<Session> session);
 
     private:
         static constexpr ULONG kCompletionQueueSize = 8192;
+
+        // Matchmaking policy -- see Matchmaker.h and this class's header
+        // comment. Tunable later without touching Room/Session at all.
+        static constexpr uint32_t kMinSquadSize = 2;
+        static constexpr uint32_t kMaxSquadSize = 4;
+        static constexpr std::chrono::milliseconds kSoloMatchTimeout{200};
 
         /*-------------------
          초기화 (Winsock/RIO/AcceptEx)
@@ -178,7 +84,10 @@ namespace Wop
         -------------------*/
         void AcceptLoop();
         void WorkerLoop();
-        void EnemyAiLoop();
+        // Ticks every live Room's server-driven enemy AI and the
+        // matchmaker's solo-timeout check on the same cadence -- was
+        // EnemyAiLoop back when there was only ever one Room to tick.
+        void BackgroundTickLoop();
 
         void OnAccepted(SOCKET clientSocket);
         void UnregisterSession(uint32_t sessionId);
@@ -187,6 +96,11 @@ namespace Wop
         // S2C_LoginFail{reason: ServerFull} (best-effort, blocking) and
         // closes the socket without ever creating a Session for it.
         void RejectServerFull(SOCKET clientSocket);
+
+        // Creates a fresh Room (applying enemyObstaclesPath_), registers it
+        // in rooms_, and adds every session in `squad` to it -- the
+        // formRoom callback Matchmaker invokes once a squad is ready.
+        void CreateRoomForSquad(std::vector<std::shared_ptr<Session>> squad);
 
         /*-------------------
          멤버 변수
@@ -208,26 +122,18 @@ namespace Wop
         std::atomic<bool> running_{false};
         std::thread acceptThread_;
         std::vector<std::thread> workerThreads_;
-        std::thread enemyAiThread_;
-        EnemyAI enemyAi_;
+        std::thread backgroundThread_;
 
         std::mutex sessionsLock_;
         std::unordered_map<uint32_t, std::shared_ptr<Session>> sessions_;
         std::atomic<uint32_t> nextSessionId_{1};
 
-        std::mutex containerLootLock_;
-        std::unordered_map<uint32_t, std::vector<InventoryItemRecord>> containerLoot_;
+        std::string enemyObstaclesPath_;
 
-        std::mutex itemSpawnLock_;
-        std::unordered_map<uint32_t, std::vector<WorldItemRecord>> itemSpawnRolls_;
+        std::mutex roomsLock_;
+        std::unordered_map<uint32_t, std::shared_ptr<Room>> rooms_;
+        std::atomic<uint32_t> nextRoomId_{1};
 
-        std::mutex itemPickupLock_;
-        std::unordered_map<uint32_t, uint32_t> pickedUpItems_; // net_slot_id -> picking session id
-
-        mutable std::mutex doorStateLock_;
-        std::unordered_map<uint32_t, bool> doorStates_; // door_id -> is_open
-
-        std::mutex enemyOwnerLock_;
-        std::unordered_map<uint32_t, uint32_t> enemyOwners_; // enemy_id -> owning session id
+        Matchmaker matchmaker_;
     };
 }

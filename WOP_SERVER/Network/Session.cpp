@@ -1,5 +1,6 @@
 ﻿#include "Session.h"
 #include "EchoServer.h"
+#include "Room.h"
 #include "EnemyAI.h"
 #include "HitDetection.h"
 #include "RioApi.h"
@@ -163,7 +164,7 @@ namespace Wop
         if (rq_ == RIO_INVALID_RQ)
             return false;
 
-        std::lock_guard<std::mutex> guard(lock_);
+        std::lock_guard<std::recursive_mutex> guard(lock_);
         return PostRecv();
     }
 
@@ -225,7 +226,7 @@ namespace Wop
 
     void Session::Send(const char* data, uint32_t len)
     {
-        std::lock_guard<std::mutex> guard(lock_);
+        std::lock_guard<std::recursive_mutex> guard(lock_);
         if (closing_.load(std::memory_order_acquire))
             return;
 
@@ -364,79 +365,17 @@ namespace Wop
                                 static_cast<uint32_t>(fbb.GetSize()));
                 }
 
-                // 2) Tell this client about everyone already connected.
-                for (const auto& other : server_.SnapshotOtherSessions(id_))
-                {
-                    flatbuffers::FlatBufferBuilder fbb;
-                    const std::string nickname = "Player" + std::to_string(other->GetId());
-                    auto nicknameOffset = fbb.CreateString(nickname);
-                    const Vec3 otherPos = other->GetPosition();
-                    const Rotator otherLook = other->GetLook();
-                    auto info = CreateS2C_SendPlayerInfo(fbb, other->GetId(), nicknameOffset, &otherPos, &otherLook, 0, 0);
-                    auto reply = CreatePacket(fbb, Payload::S2C_SendPlayerInfo, info.Union());
-                    FinishSizePrefixedPacketBuffer(fbb, reply);
-                    EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                                static_cast<uint32_t>(fbb.GetSize()));
-
-                    // Also tell the newly-joining client what this existing
-                    // player is currently holding, so their weapon shows up
-                    // right away instead of only on their next weapon swap.
-                    if (const uint8_t otherWeaponType = other->GetWeaponType(); otherWeaponType != 0)
-                    {
-                        flatbuffers::FlatBufferBuilder equipFbb;
-                        auto equip = CreateS2C_ItemUseBroadcast(equipFbb, other->GetId(), ItemUseType::Equip, otherWeaponType);
-                        auto equipReply = CreatePacket(equipFbb, Payload::S2C_ItemUseBroadcast, equip.Union());
-                        FinishSizePrefixedPacketBuffer(equipFbb, equipReply);
-                        EnqueueEcho(reinterpret_cast<const char*>(equipFbb.GetBufferPointer()),
-                                    static_cast<uint32_t>(equipFbb.GetSize()));
-                    }
-                }
-
-                // 2b) Tell this client about every door someone already
-                // toggled this server run (see EchoServer::SetDoorState's
-                // header comment for why this is world state, not
-                // per-session state like the roster above). Doors never
-                // toggled have no entry -- closed is what every client
-                // already spawns with, nothing to replay. player_id here is
-                // meaningless (the client's OnDoorInteract handler only
-                // looks at target_id/interact_type), so it's just this
-                // session's own id rather than whoever actually toggled it
-                // (that information isn't kept, only the current state is).
-                for (const auto& [doorId, isOpen] : server_.SnapshotDoorStates())
-                {
-                    flatbuffers::FlatBufferBuilder doorFbb;
-                    auto doorResult = CreateS2C_InteractResult(doorFbb, id_, doorId,
-                        isOpen ? InteractType::DoorOpen : InteractType::DoorClose, ResultCode::Ok);
-                    auto doorReply = CreatePacket(doorFbb, Payload::S2C_InteractResult, doorResult.Union());
-                    FinishSizePrefixedPacketBuffer(doorFbb, doorReply);
-                    EnqueueEcho(reinterpret_cast<const char*>(doorFbb.GetBufferPointer()),
-                                static_cast<uint32_t>(doorFbb.GetSize()));
-                }
-
-                // 3) Tell everyone else that this player just joined.
-                {
-                    flatbuffers::FlatBufferBuilder fbb;
-                    const std::string nickname = "Player" + std::to_string(id_);
-                    auto nicknameOffset = fbb.CreateString(nickname);
-                    auto info = CreateS2C_SendPlayerInfo(fbb, id_, nicknameOffset, &position_, &look_, 0, 0);
-                    auto reply = CreatePacket(fbb, Payload::S2C_SendPlayerInfo, info.Union());
-                    FinishSizePrefixedPacketBuffer(fbb, reply);
-                    server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                                       static_cast<uint32_t>(fbb.GetSize()));
-                }
-
-                // If restored progress means this player already has a
-                // weapon out, tell everyone else too (mirrors step 2 above,
-                // just in the other direction).
-                if (weaponType_ != 0)
-                {
-                    flatbuffers::FlatBufferBuilder equipFbb;
-                    auto equip = CreateS2C_ItemUseBroadcast(equipFbb, id_, ItemUseType::Equip, weaponType_);
-                    auto equipReply = CreatePacket(equipFbb, Payload::S2C_ItemUseBroadcast, equip.Union());
-                    FinishSizePrefixedPacketBuffer(equipFbb, equipReply);
-                    server_.Broadcast(id_, reinterpret_cast<const char*>(equipFbb.GetBufferPointer()),
-                                       static_cast<uint32_t>(equipFbb.GetSize()));
-                }
+                // Multiplayer roster reveal ("who else is here", replayed
+                // door states, "I just joined" broadcast) doesn't happen
+                // here anymore -- login and room membership are two
+                // separate events now that sessions are grouped into small
+                // squads first (see EchoServer::EnqueueForMatch/
+                // Matchmaker.h): this session might not get a Room the
+                // instant login succeeds, if nobody else is queued yet.
+                // Room::AnnounceNewMember (called from Room::AddSession)
+                // does all of that instead, whenever this session actually
+                // ends up in a Room.
+                server_.EnqueueForMatch(shared_from_this());
                 break;
             }
 
@@ -445,6 +384,13 @@ namespace Wop
                 const auto* move = packet->payload_as_C2S_MoveInput();
                 if (!move)
                     break;
+
+                // Not yet matched into a Room (still queued -- see
+                // EchoServer::EnqueueForMatch) -- nobody to broadcast this
+                // to yet. position_/look_ below are this session's own
+                // state regardless, so those still update; only the
+                // broadcast at the end is skipped.
+                const std::shared_ptr<Room> room = GetRoom();
 
                 if (const auto* pos = move->position())
                     position_ = *pos;
@@ -473,8 +419,11 @@ namespace Wop
                 auto state = CreateS2C_MoveState(fbb, id_, 0, &position_, &velocity, &look_, move->flags(), ackSeq);
                 auto reply = CreatePacket(fbb, Payload::S2C_MoveState, state.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                                   static_cast<uint32_t>(fbb.GetSize()));
+                if (room)
+                {
+                    room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                       static_cast<uint32_t>(fbb.GetSize()));
+                }
                 break;
             }
 
@@ -484,16 +433,22 @@ namespace Wop
                 if (!req)
                     break;
 
+                // Not yet matched into a Room -- nobody to attack/broadcast
+                // to yet (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
+                    break;
+
                 flatbuffers::FlatBufferBuilder fbb;
                 const Vec3 origin = req->origin() ? *req->origin() : Vec3(0.0f, 0.0f, 0.0f);
                 const Vec3 direction = req->direction() ? *req->direction() : Vec3(0.0f, 0.0f, 0.0f);
                 auto broadcast = CreateS2C_AttackBroadcast(fbb, id_, req->weapon_slot(), req->attack_type(), &origin, &direction);
                 auto reply = CreatePacket(fbb, Payload::S2C_AttackBroadcast, broadcast.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
 
-                ResolveAndBroadcastHit(origin, direction, req->weapon_slot());
+                ResolveAndBroadcastHit(room, origin, direction, req->weapon_slot());
                 break;
             }
 
@@ -504,10 +459,18 @@ namespace Wop
                     break;
 
                 // Remember what this session is currently holding so future
-                // joiners can be told about it immediately (see the roster
-                // loop in the C2S_Login case above).
+                // joiners can be told about it immediately (see Room::
+                // AnnounceNewMember).
                 if (req->use_type() == ItemUseType::Equip)
                     weaponType_ = req->slot();
+
+                // Not yet matched into a Room -- nobody to broadcast to yet
+                // (see EchoServer::EnqueueForMatch). weaponType_ above still
+                // updates regardless, so Room::AnnounceNewMember picks up
+                // the right value once this session IS matched.
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
+                    break;
 
                 // Broadcast generically for every use_type; the client
                 // decides what (if anything) to do with each type. Currently
@@ -517,7 +480,7 @@ namespace Wop
                 auto broadcast = CreateS2C_ItemUseBroadcast(fbb, id_, req->use_type(), req->slot());
                 auto reply = CreatePacket(fbb, Payload::S2C_ItemUseBroadcast, broadcast.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
@@ -694,6 +657,12 @@ namespace Wop
                 if (!IsVisible())
                     break;
 
+                // Not yet matched into a Room -- nobody to relay this to
+                // yet (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
+                    break;
+
                 flatbuffers::FlatBufferBuilder fbb;
                 auto itemIdOffset = fbb.CreateString(req->item()->item_id()->str());
                 const Vec3 position = req->item()->position() ? *req->item()->position() : Vec3(0.0f, 0.0f, 0.0f);
@@ -701,7 +670,7 @@ namespace Wop
                 auto dropped = CreateS2C_ItemDropped(fbb, id_, req->drop_sequence(), itemEntry);
                 auto reply = CreatePacket(fbb, Payload::S2C_ItemDropped, dropped.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
@@ -712,7 +681,7 @@ namespace Wop
                 if (!req)
                     break;
 
-                // Recorded regardless of direction -- EnemyAiLoop checks
+                // Recorded regardless of direction -- Room::Tick checks
                 // this to exclude an invisible session's (now frozen,
                 // stopped-updating) position from server-driven enemies'
                 // target snapshot (see Session::IsVisible's comment).
@@ -728,19 +697,26 @@ namespace Wop
                 // clients despawn it instead of freezing it in place.
                 if (!req->visible())
                 {
+                    // Not yet matched into a Room -- nothing to leave yet
+                    // (see EchoServer::EnqueueForMatch); visible_ above
+                    // still updates regardless.
+                    const std::shared_ptr<Room> room = GetRoom();
+                    if (!room)
+                        break;
+
                     flatbuffers::FlatBufferBuilder fbb;
                     auto left = CreateS2C_PlayerLeft(fbb, id_);
                     auto reply = CreatePacket(fbb, Payload::S2C_PlayerLeft, left.Union());
                     FinishSizePrefixedPacketBuffer(fbb, reply);
-                    server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                    room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                        static_cast<uint32_t>(fbb.GetSize()));
 
                     // This session just left the Multi map without
                     // disconnecting -- if it was the last one still in it,
-                    // reset the Multi map's world state (loot/doors/enemies)
+                    // reset this room's world state (loot/doors/enemies)
                     // the same as a disconnect would. See
-                    // EchoServer::ResetWorldStateIfMultiMapEmpty's comment.
-                    server_.ResetWorldStateIfMultiMapEmpty();
+                    // Room::ResetWorldStateIfNoVisibleMembers's comment.
+                    room->ResetWorldStateIfNoVisibleMembers();
                 }
                 break;
             }
@@ -756,6 +732,12 @@ namespace Wop
                 // needed (unlike C2S_ItemSpawnRoll/ContainerLootRoll) since
                 // only the one dying client ever proposes this drop.
                 const auto* req = packet->payload_as_C2S_PlayerDied();
+
+                // Not yet matched into a Room -- nobody to relay this to
+                // yet (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
+                    break;
 
                 flatbuffers::FlatBufferBuilder fbb;
                 std::vector<flatbuffers::Offset<WorldSpawnedItemEntry>> itemOffsets;
@@ -775,7 +757,7 @@ namespace Wop
                 auto died = CreateS2C_PlayerDied(fbb, id_, itemsVector);
                 auto reply = CreatePacket(fbb, Payload::S2C_PlayerDied, died.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
@@ -784,6 +766,12 @@ namespace Wop
             {
                 const auto* req = packet->payload_as_C2S_InteractRequest();
                 if (!req)
+                    break;
+
+                // Not yet matched into a Room -- nothing to arbitrate/relay
+                // against yet (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
                     break;
 
                 // Loot (picking up a ground ADropItem) needs arbitration,
@@ -798,7 +786,7 @@ namespace Wop
                 // anything to their inventory.
                 if (req->interact_type() == InteractType::Loot)
                 {
-                    const bool granted = server_.ClaimItemPickup(req->target_id(), id_);
+                    const bool granted = room->ClaimItemPickup(req->target_id(), id_);
                     const ResultCode result = granted ? ResultCode::Ok : ResultCode::Denied;
 
                     flatbuffers::FlatBufferBuilder fbb;
@@ -810,7 +798,7 @@ namespace Wop
                                 static_cast<uint32_t>(fbb.GetSize()));
                     if (granted)
                     {
-                        server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                        room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                            static_cast<uint32_t>(fbb.GetSize()));
                     }
                     break;
@@ -824,18 +812,18 @@ namespace Wop
                 // should match" -- same trust tier as S2C_ItemUseBroadcast's
                 // weapon equip/reload relay. The toggle IS recorded
                 // (SetDoorState) purely so a client joining later gets it
-                // replayed in C2S_Login's roster loop -- see that loop and
-                // EchoServer::SetDoorState's header comment.
+                // replayed by Room::AnnounceNewMember -- see that and
+                // Room::SetDoorState's header comment.
                 if (req->interact_type() != InteractType::DoorOpen && req->interact_type() != InteractType::DoorClose)
                     break;
 
-                server_.SetDoorState(req->target_id(), req->interact_type() == InteractType::DoorOpen);
+                room->SetDoorState(req->target_id(), req->interact_type() == InteractType::DoorOpen);
 
                 flatbuffers::FlatBufferBuilder fbb;
                 auto result = CreateS2C_InteractResult(fbb, id_, req->target_id(), req->interact_type(), ResultCode::Ok);
                 auto reply = CreatePacket(fbb, Payload::S2C_InteractResult, result.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
@@ -844,6 +832,12 @@ namespace Wop
             {
                 const auto* req = packet->payload_as_C2S_ItemSpawnRoll();
                 if (!req)
+                    break;
+
+                // Not yet matched into a Room -- nothing to arbitrate/relay
+                // against yet (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
                     break;
 
                 std::vector<WorldItemRecord> proposed;
@@ -871,7 +865,7 @@ namespace Wop
                 // first-roll-wins arbitration as C2S_ContainerLootRoll,
                 // just for loose world drops instead of a grid container.
                 const std::vector<WorldItemRecord>& authoritative =
-                    server_.ClaimItemSpawnRoll(req->spawn_point_id(), std::move(proposed));
+                    room->ClaimItemSpawnRoll(req->spawn_point_id(), std::move(proposed));
 
                 flatbuffers::FlatBufferBuilder fbb;
                 std::vector<flatbuffers::Offset<WorldSpawnedItemEntry>> itemOffsets;
@@ -889,7 +883,7 @@ namespace Wop
 
                 EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                             static_cast<uint32_t>(fbb.GetSize()));
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
@@ -898,6 +892,12 @@ namespace Wop
             {
                 const auto* req = packet->payload_as_C2S_ContainerLootRoll();
                 if (!req)
+                    break;
+
+                // Not yet matched into a Room -- nothing to arbitrate/relay
+                // against yet (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
                     break;
 
                 std::vector<InventoryItemRecord> proposed;
@@ -922,7 +922,7 @@ namespace Wop
                 // this sender, whose own roll may just have been rejected in
                 // favor of an earlier one) gets told the same answer.
                 const std::vector<InventoryItemRecord>& authoritative =
-                    server_.ClaimContainerLoot(req->container_id(), std::move(proposed));
+                    room->ClaimContainerLoot(req->container_id(), std::move(proposed));
 
                 flatbuffers::FlatBufferBuilder fbb;
                 std::vector<flatbuffers::Offset<InventoryItemEntry>> itemOffsets;
@@ -940,7 +940,7 @@ namespace Wop
 
                 EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                             static_cast<uint32_t>(fbb.GetSize()));
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
@@ -956,11 +956,17 @@ namespace Wop
                 // UProtoNetClientSubsystem::SendCompanionMoveInput's comment
                 // for the "ghost companion" bug this used to let through):
                 // Broadcast() below doesn't filter by visibility (see
-                // EchoServer::SnapshotOtherSessions), so a companion update
+                // Room::SnapshotOtherSessions), so a companion update
                 // from a session that has left the Multi map (SafePlace/
                 // Single map, still connected) must be dropped here too,
                 // not just trusted to never be sent.
                 if (!IsVisible())
+                    break;
+
+                // Not yet matched into a Room -- nobody to broadcast to yet
+                // (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
                     break;
 
                 // No separate companion login/session -- owner_id is this
@@ -974,7 +980,7 @@ namespace Wop
                     req->weapon_type(), req->is_aiming(), req->aim_pitch());
                 auto reply = CreatePacket(fbb, Payload::S2C_CompanionMoveState, state.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
@@ -985,7 +991,13 @@ namespace Wop
                 if (!req)
                     break;
 
-                const bool granted = server_.ClaimEnemy(req->enemy_id(), id_);
+                // Not yet matched into a Room -- nothing to claim yet (see
+                // EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
+                    break;
+
+                const bool granted = room->ClaimEnemy(req->enemy_id(), id_);
 
                 flatbuffers::FlatBufferBuilder fbb;
                 auto result = CreateS2C_EnemyClaimResult(fbb, req->enemy_id(), granted);
@@ -1002,6 +1014,12 @@ namespace Wop
                 if (!req)
                     break;
 
+                // Not yet matched into a Room -- nobody to broadcast to yet
+                // (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
+                    break;
+
                 // Trusted as-is, same as C2S_MoveInput's position -- a
                 // non-owner sending this would just be overwritten by the
                 // real owner's next update anyway.
@@ -1011,7 +1029,7 @@ namespace Wop
                 auto state = CreateS2C_EnemyState(fbb, req->enemy_id(), &position, &look, req->health(), req->is_dead());
                 auto reply = CreatePacket(fbb, Payload::S2C_EnemyState, state.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
-                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                    static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
@@ -1022,19 +1040,25 @@ namespace Wop
                 if (!req)
                     break;
 
+                // Not yet matched into a Room -- no server-driven enemy or
+                // owner to relay to yet (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
+                    break;
+
                 // Server-driven enemies (registered via C2S_EnemyRegister,
                 // Multi map only) apply damage directly -- the server IS
                 // the health authority for those, there's no owner to relay
                 // to. Falls back to the older client-ownership relay for
                 // everything else (Single map, or not yet registered).
-                if (!server_.ApplyServerEnemyDamage(req->enemy_id(), req->damage()))
+                if (!room->ApplyServerEnemyDamage(req->enemy_id(), req->damage()))
                 {
                     // Unicast to the current owner only -- see this message's
                     // schema comment. Silently dropped if the enemy is
                     // unclaimed or its owner already disconnected; the next
                     // client to claim it starts from whatever health the last
                     // owner had broadcast.
-                    if (auto ownerSession = server_.FindEnemyOwnerSession(req->enemy_id()))
+                    if (auto ownerSession = room->FindEnemyOwnerSession(req->enemy_id()))
                     {
                         flatbuffers::FlatBufferBuilder fbb;
                         auto damage = CreateS2C_EnemyDamage(fbb, req->enemy_id(), req->damage());
@@ -1051,6 +1075,12 @@ namespace Wop
             {
                 const auto* req = packet->payload_as_C2S_EnemyRegister();
                 if (!req)
+                    break;
+
+                // Not yet matched into a Room -- no server-driven AI to
+                // register against yet (see EchoServer::EnqueueForMatch).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
                     break;
 
                 // No reply -- unlike C2S_EnemyClaimRequest, the registering
@@ -1074,7 +1104,7 @@ namespace Wop
                 initial.isCaller = req->is_caller();
                 initial.callRadius = req->call_radius();
                 initial.callCooldown = req->call_cooldown();
-                server_.RegisterServerEnemy(req->enemy_id(), initial);
+                room->RegisterServerEnemy(req->enemy_id(), initial);
                 break;
             }
 
@@ -1083,7 +1113,7 @@ namespace Wop
         }
     }
 
-    void Session::ResolveAndBroadcastHit(const ProtoType::Net::Vec3& origin, const ProtoType::Net::Vec3& direction, uint8_t weaponSlot)
+    void Session::ResolveAndBroadcastHit(const std::shared_ptr<Room>& room, const ProtoType::Net::Vec3& origin, const ProtoType::Net::Vec3& direction, uint8_t weaponSlot)
     {
         using namespace ProtoType::Net;
 
@@ -1103,7 +1133,7 @@ namespace Wop
         Vec3 bestPosition(0.0f, 0.0f, 0.0f);
         HitBone bestBone = HitBone::None;
 
-        for (const auto& other : server_.SnapshotOtherSessions(id_))
+        for (const auto& other : room->SnapshotOtherSessions(id_))
         {
             // Real hitbox test (capsule, not a flat sphere blob) -- see
             // HitDetection.h for what this approximates and why.
@@ -1128,7 +1158,7 @@ namespace Wop
         FinishSizePrefixedPacketBuffer(fbb, reply);
 
         EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()), static_cast<uint32_t>(fbb.GetSize()));
-        server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()), static_cast<uint32_t>(fbb.GetSize()));
+        room->Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()), static_cast<uint32_t>(fbb.GetSize()));
     }
 
     void Session::ProcessRecvBuffer()
@@ -1205,7 +1235,7 @@ namespace Wop
     void Session::OnRecvCompletion(bool success, uint32_t bytesTransferred)
     {
         {
-            std::lock_guard<std::mutex> guard(lock_);
+            std::lock_guard<std::recursive_mutex> guard(lock_);
             pendingOps_.fetch_sub(1, std::memory_order_acq_rel);
 
             if (!success || bytesTransferred == 0)
@@ -1231,7 +1261,7 @@ namespace Wop
     void Session::OnSendCompletion(bool success, uint32_t bytesTransferred)
     {
         {
-            std::lock_guard<std::mutex> guard(lock_);
+            std::lock_guard<std::recursive_mutex> guard(lock_);
             pendingOps_.fetch_sub(1, std::memory_order_acq_rel);
             sendInProgress_ = false;
 

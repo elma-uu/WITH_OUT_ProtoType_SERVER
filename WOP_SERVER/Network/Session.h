@@ -13,10 +13,13 @@ namespace ProtoType { namespace Net { struct Packet; } }
 namespace Wop
 {
     class EchoServer;
+    class Room;
 
     // One TCP connection. Frames the raw byte stream into size-prefixed
     // Packet buffers and echoes them back; Login/MoveInput/Attack/ItemUse
-    // additionally drive a multiplayer broadcast via EchoServer.
+    // additionally drive a multiplayer broadcast via this session's Room
+    // (see Room.h -- world state/broadcast scope, not EchoServer, which is
+    // just connection plumbing now).
     class Session : public std::enable_shared_from_this<Session>
     {
     public:
@@ -26,6 +29,10 @@ namespace Wop
         /*-------------------
          생성/소멸/시작
         -------------------*/
+        // No Room param anymore -- a session doesn't get one until it's
+        // actually matched (see EchoServer::EnqueueForMatch/Matchmaker.h,
+        // called from this session's own C2S_Login handling), which may be
+        // moments after construction, not at construction itself.
         Session(SOCKET socket, uint32_t id, RIO_CQ recvCq, RIO_CQ sendCq,
                 EchoServer& server, std::function<void(uint32_t)> onClosed);
         ~Session();
@@ -54,6 +61,29 @@ namespace Wop
         -------------------*/
         SOCKET GetSocket() const { return socket_; }
         uint32_t GetId() const { return id_; }
+        // Which Room's world state/broadcast this session belongs to --
+        // null until Matchmaker actually groups this session into a squad
+        // (see SetRoom, called from Room::AddSession). Locked, not a plain
+        // read like GetPosition()/GetLook() below: unlike those (where a
+        // stale float is harmless), a torn/half-written shared_ptr read
+        // racing SetRoom from another thread would be a real crash, not
+        // just stale data -- see SetRoom's comment for why that race is
+        // real (not just theoretical) here.
+        std::shared_ptr<Room> GetRoom() const
+        {
+            std::lock_guard<std::mutex> guard(roomLock_);
+            return room_;
+        }
+        // Called once this session's squad is matched (see Room::
+        // AddSession) -- may run on a DIFFERENT worker thread than the one
+        // servicing this Session's own socket (whichever session's login
+        // happened to complete the squad drives Room::AddSession for
+        // everyone in it), hence the lock.
+        void SetRoom(std::shared_ptr<Room> room)
+        {
+            std::lock_guard<std::mutex> guard(roomLock_);
+            room_ = std::move(room);
+        }
         ProtoType::Net::Vec3 GetPosition() const { return position_; }
         ProtoType::Net::Rotator GetLook() const { return look_; }
         // Last equipped weapon type (EWeaponType; 0 = none), for telling
@@ -63,8 +93,8 @@ namespace Wop
         // Set from C2S_SetVisible -- false means this session left the
         // shared multiplayer world (Single map, hub/SafePlace, etc; see
         // UProtoNetClientSubsystem::SetMultiplayerVisualsEnabled) while
-        // staying connected. EchoServer::EnemyAiLoop excludes invisible
-        // sessions from server-driven enemies' target snapshot: without
+        // staying connected. Room::Tick excludes invisible sessions from
+        // server-driven enemies' target snapshot: without
         // this, a zombie could keep "chasing"/attacking a player's last
         // reported position from a map they already left, landing
         // S2C_EnemyAttackResult hits on a player standing safely somewhere
@@ -96,8 +126,10 @@ namespace Wop
         // hitbox -- an upright capsule at their last-known position, see
         // HitDetection.h -- instead of a real raycast against real
         // collision, and broadcasts the nearest hit as S2C_AttackResult
-        // (including which body region it landed in, via HitBone).
-        void ResolveAndBroadcastHit(const ProtoType::Net::Vec3& origin, const ProtoType::Net::Vec3& direction, uint8_t weaponSlot);
+        // (including which body region it landed in, via HitBone). Takes
+        // `room` explicitly (the C2S_AttackRequest case already fetched it
+        // via GetRoom()) rather than re-locking roomLock_ a second time.
+        void ResolveAndBroadcastHit(const std::shared_ptr<Room>& room, const ProtoType::Net::Vec3& origin, const ProtoType::Net::Vec3& direction, uint8_t weaponSlot);
 
         void Close(const char* reason);
         void ReleaseIfIdle(); // erases the session once no RIO op is in flight
@@ -110,6 +142,8 @@ namespace Wop
         RIO_CQ recvCq_;
         RIO_CQ sendCq_;
         EchoServer& server_;
+        mutable std::mutex roomLock_;
+        std::shared_ptr<Room> room_; // guarded by roomLock_ -- see GetRoom/SetRoom
         std::function<void(uint32_t)> onClosed_;
 
         // Read cross-thread via GetPosition()/GetLook()/GetWeaponType()/
@@ -133,7 +167,15 @@ namespace Wop
         RingBuffer recvBuffer_{kRecvBufferCapacity};
         RingBuffer sendBuffer_{kSendBufferCapacity};
 
-        std::mutex lock_;
+        // Recursive, not plain std::mutex: Send() (called by Room, possibly
+        // for THIS session's own new membership -- see Room::
+        // AnnounceNewMember) can run nested inside OnRecvCompletion's own
+        // guard(lock_) when this session's own C2S_Login is what completes
+        // its squad's match (EnqueueForMatch -> ... -> Room::AddSession ->
+        // AnnounceNewMember -> newMember->Send(), all on this session's own
+        // worker thread, which already holds lock_ from OnRecvCompletion).
+        // A plain std::mutex would self-deadlock there.
+        std::recursive_mutex lock_;
         bool sendInProgress_ = false;
 
         std::atomic<int> pendingOps_{0};

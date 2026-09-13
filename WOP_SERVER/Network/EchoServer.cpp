@@ -13,6 +13,8 @@ namespace Wop
         : port_(port)
         , workerThreadCount_(workerThreadCount == 0 ? 1 : workerThreadCount)
         , maxPlayers_(maxPlayers == 0 ? 1 : maxPlayers)
+        , matchmaker_(kMinSquadSize, kMaxSquadSize, kSoloMatchTimeout,
+              [this](std::vector<std::shared_ptr<Session>> squad) { CreateRoomForSquad(std::move(squad)); })
     {
     }
 
@@ -137,7 +139,7 @@ namespace Wop
             workerThreads_.emplace_back([this] { WorkerLoop(); });
 
         acceptThread_ = std::thread([this] { AcceptLoop(); });
-        enemyAiThread_ = std::thread([this] { EnemyAiLoop(); });
+        backgroundThread_ = std::thread([this] { BackgroundTickLoop(); });
 
         std::printf("EchoServer listening on port %u with %u worker thread(s)\n",
                      port_, workerThreadCount_);
@@ -160,8 +162,8 @@ namespace Wop
         if (acceptThread_.joinable())
             acceptThread_.join();
 
-        if (enemyAiThread_.joinable())
-            enemyAiThread_.join();
+        if (backgroundThread_.joinable())
+            backgroundThread_.join();
 
         for (size_t i = 0; i < workerThreads_.size(); ++i)
             PostQueuedCompletionStatus(iocp_, 0, kShutdownCompletionKey, nullptr);
@@ -281,6 +283,9 @@ namespace Wop
             sessions_.emplace(id, session);
         }
 
+        // No Room yet -- this session doesn't get one until it actually
+        // logs in and is matched (see EnqueueForMatch, called from
+        // Session's own C2S_Login handling).
         if (!session->Start())
         {
             std::printf("[Session %u] failed to initialize RIO\n", id);
@@ -315,51 +320,6 @@ namespace Wop
         closesocket(clientSocket);
     }
 
-    void EchoServer::ResetWorldStateIfMultiMapEmpty()
-    {
-        // Session id 0 never belongs to a real connection -- same
-        // "snapshot everyone" idiom EnemyAiLoop uses.
-        for (const auto& session : SnapshotOtherSessions(0))
-        {
-            if (session->IsVisible())
-            {
-                // Someone's still in the Multi map -- their loot/doors/
-                // enemies are still "the current game", not stale.
-                return;
-            }
-        }
-
-        // Forget every claim this server run has accumulated for container
-        // loot/item spawns/pickups/doors/enemies, so the next player(s) to
-        // enter the Multi map start a genuinely fresh world instead of one
-        // where, say, half the loot from three test sessions ago is
-        // permanently already-claimed (see ClaimItemPickup/
-        // ClaimContainerLoot/ClaimItemSpawnRoll -- these have no expiry, a
-        // claimed slot stays claimed for this process's whole lifetime
-        // otherwise) or every zombie someone killed earlier is still
-        // registered as dead with nothing left to fight on the next visit.
-        // Doesn't touch per-account DB state (progress/inventory) -- only
-        // this in-memory, not-tied-to-any-account world state.
-        {
-            std::lock_guard<std::mutex> guard(itemPickupLock_);
-            pickedUpItems_.clear();
-        }
-        {
-            std::lock_guard<std::mutex> guard(itemSpawnLock_);
-            itemSpawnRolls_.clear();
-        }
-        {
-            std::lock_guard<std::mutex> guard(containerLootLock_);
-            containerLoot_.clear();
-        }
-        {
-            std::lock_guard<std::mutex> guard(doorStateLock_);
-            doorStates_.clear();
-        }
-        enemyAi_.Reset();
-        std::printf("Multi map empty (no visible sessions left) -- world state (loot/pickups/doors/enemies) reset for the next visit.\n");
-    }
-
     void EchoServer::UnregisterSession(uint32_t sessionId)
     {
         std::shared_ptr<Session> keepAlive;
@@ -373,15 +333,45 @@ namespace Wop
             }
         }
 
-        // A disconnecting session was, by definition, still in the
-        // SnapshotOtherSessions() list an instant ago -- if it was the last
-        // VISIBLE one (or the server's simply empty now), this is what
-        // resets the Multi map's world state. See this function's own
-        // comment for why "visible", not "connected", is the right signal.
-        ResetWorldStateIfMultiMapEmpty();
-
         if (keepAlive)
         {
+            // A session disconnecting before it was ever matched (still
+            // sitting in matchmaker_'s queue -- see EnqueueForMatch) would
+            // otherwise linger there forever, or get handed to
+            // CreateRoomForSquad as a stale entry once a squad forms
+            // around it. No-op if it already matched (and so isn't queued
+            // anymore) or never queued to begin with.
+            matchmaker_.Cancel(sessionId);
+
+            // A disconnecting session was, by definition, still a member of
+            // its Room an instant ago (if it ever got one) -- remove it
+            // first so the "is anyone still visible" check below (and
+            // every Broadcast after it) doesn't count the session that's
+            // leaving.
+            const std::shared_ptr<Room> room = keepAlive->GetRoom();
+            if (room)
+            {
+                room->RemoveSession(sessionId);
+
+                // If this was the last VISIBLE member of that room (or it's
+                // simply empty now), reset ITS world state -- see Room::
+                // ResetWorldStateIfNoVisibleMembers's comment for why
+                // "visible", not "connected/a member", is the right signal.
+                room->ResetWorldStateIfNoVisibleMembers();
+
+                // And if it's now completely empty (not just invisible),
+                // there's no reason to keep it around at all -- unlike step
+                // 1's single server-lifetime defaultRoom_, real matchmaking
+                // creates rooms on demand, so they should go away on demand
+                // too, or a long-running server would just accumulate one
+                // forever-empty Room per match ever played.
+                if (room->MemberCount() == 0)
+                {
+                    std::lock_guard<std::mutex> guard(roomsLock_);
+                    rooms_.erase(room->GetId());
+                }
+            }
+
             std::printf("[Session %u] disconnected\n", sessionId);
 
             // Best-effort final save so a reconnect picks up close to where
@@ -389,25 +379,28 @@ namespace Wop
             // account -- see Session::FlushProgress).
             keepAlive->FlushProgress();
 
-            // Tell everyone still connected so they can despawn this
-            // player's remote actor instead of leaving a frozen ghost.
-            flatbuffers::FlatBufferBuilder fbb;
-            auto left = ProtoType::Net::CreateS2C_PlayerLeft(fbb, sessionId);
-            auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_PlayerLeft, left.Union());
-            ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
-            Broadcast(sessionId, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                      static_cast<uint32_t>(fbb.GetSize()));
-
-            // Any enemy this session was driving needs a new owner -- it
-            // doesn't despawn just because its driver left.
-            for (uint32_t enemyId : ReleaseEnemiesOwnedBy(sessionId))
+            if (room)
             {
-                flatbuffers::FlatBufferBuilder ownerLeftFbb;
-                auto ownerLeft = ProtoType::Net::CreateS2C_EnemyOwnerLeft(ownerLeftFbb, enemyId);
-                auto ownerLeftPacket = ProtoType::Net::CreatePacket(ownerLeftFbb, ProtoType::Net::Payload::S2C_EnemyOwnerLeft, ownerLeft.Union());
-                ProtoType::Net::FinishSizePrefixedPacketBuffer(ownerLeftFbb, ownerLeftPacket);
-                Broadcast(sessionId, reinterpret_cast<const char*>(ownerLeftFbb.GetBufferPointer()),
-                          static_cast<uint32_t>(ownerLeftFbb.GetSize()));
+                // Tell the rest of that room so they can despawn this
+                // player's remote actor instead of leaving a frozen ghost.
+                flatbuffers::FlatBufferBuilder fbb;
+                auto left = ProtoType::Net::CreateS2C_PlayerLeft(fbb, sessionId);
+                auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_PlayerLeft, left.Union());
+                ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
+                room->Broadcast(sessionId, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                          static_cast<uint32_t>(fbb.GetSize()));
+
+                // Any enemy this session was driving needs a new owner -- it
+                // doesn't despawn just because its driver left.
+                for (uint32_t enemyId : room->ReleaseEnemiesOwnedBy(sessionId))
+                {
+                    flatbuffers::FlatBufferBuilder ownerLeftFbb;
+                    auto ownerLeft = ProtoType::Net::CreateS2C_EnemyOwnerLeft(ownerLeftFbb, enemyId);
+                    auto ownerLeftPacket = ProtoType::Net::CreatePacket(ownerLeftFbb, ProtoType::Net::Payload::S2C_EnemyOwnerLeft, ownerLeft.Union());
+                    ProtoType::Net::FinishSizePrefixedPacketBuffer(ownerLeftFbb, ownerLeftPacket);
+                    room->Broadcast(sessionId, reinterpret_cast<const char*>(ownerLeftFbb.GetBufferPointer()),
+                              static_cast<uint32_t>(ownerLeftFbb.GetSize()));
+                }
             }
         }
 
@@ -416,130 +409,69 @@ namespace Wop
     }
 
     /*-------------------
-     멀티플레이어 브로드캐스트 지원
-    -------------------*/
-    void EchoServer::Broadcast(uint32_t excludeSessionId, const char* data, uint32_t len)
-    {
-        for (const auto& session : SnapshotOtherSessions(excludeSessionId))
-            session->Send(data, len);
-    }
-
-    std::vector<std::shared_ptr<Session>> EchoServer::SnapshotOtherSessions(uint32_t excludeSessionId)
-    {
-        std::vector<std::shared_ptr<Session>> result;
-        std::lock_guard<std::mutex> guard(sessionsLock_);
-        result.reserve(sessions_.size());
-        for (const auto& [id, session] : sessions_)
-        {
-            if (id != excludeSessionId)
-                result.push_back(session);
-        }
-        return result;
-    }
-
-    const std::vector<InventoryItemRecord>& EchoServer::ClaimContainerLoot(
-        uint32_t containerId, std::vector<InventoryItemRecord> proposed)
-    {
-        std::lock_guard<std::mutex> guard(containerLootLock_);
-        // try_emplace only constructs/inserts `proposed` if containerId isn't
-        // already present -- if it is, the existing entry (an earlier
-        // client's roll) is left untouched and returned instead.
-        const auto [it, inserted] = containerLoot_.try_emplace(containerId, std::move(proposed));
-        return it->second;
-    }
-
-    const std::vector<WorldItemRecord>& EchoServer::ClaimItemSpawnRoll(
-        uint32_t spawnPointId, std::vector<WorldItemRecord> proposed)
-    {
-        std::lock_guard<std::mutex> guard(itemSpawnLock_);
-        const auto [it, inserted] = itemSpawnRolls_.try_emplace(spawnPointId, std::move(proposed));
-        return it->second;
-    }
-
-    void EchoServer::SetDoorState(uint32_t doorId, bool isOpen)
-    {
-        std::lock_guard<std::mutex> guard(doorStateLock_);
-        doorStates_[doorId] = isOpen;
-    }
-
-    std::vector<std::pair<uint32_t, bool>> EchoServer::SnapshotDoorStates() const
-    {
-        std::lock_guard<std::mutex> guard(doorStateLock_);
-        std::vector<std::pair<uint32_t, bool>> snapshot;
-        snapshot.reserve(doorStates_.size());
-        for (const auto& [doorId, isOpen] : doorStates_)
-            snapshot.emplace_back(doorId, isOpen);
-        return snapshot;
-    }
-
-    bool EchoServer::ClaimItemPickup(uint32_t netSlotId, uint32_t sessionId)
-    {
-        std::lock_guard<std::mutex> guard(itemPickupLock_);
-        const auto [it, inserted] = pickedUpItems_.try_emplace(netSlotId, sessionId);
-        return inserted;
-    }
-
-    bool EchoServer::ClaimEnemy(uint32_t enemyId, uint32_t sessionId)
-    {
-        std::lock_guard<std::mutex> guard(enemyOwnerLock_);
-        const auto [it, inserted] = enemyOwners_.try_emplace(enemyId, sessionId);
-        return inserted || it->second == sessionId;
-    }
-
-    std::vector<uint32_t> EchoServer::ReleaseEnemiesOwnedBy(uint32_t sessionId)
-    {
-        std::vector<uint32_t> released;
-        std::lock_guard<std::mutex> guard(enemyOwnerLock_);
-        for (auto it = enemyOwners_.begin(); it != enemyOwners_.end(); )
-        {
-            if (it->second == sessionId)
-            {
-                released.push_back(it->first);
-                it = enemyOwners_.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
-        return released;
-    }
-
-    std::shared_ptr<Session> EchoServer::FindEnemyOwnerSession(uint32_t enemyId)
-    {
-        uint32_t ownerId = 0;
-        {
-            std::lock_guard<std::mutex> guard(enemyOwnerLock_);
-            const auto it = enemyOwners_.find(enemyId);
-            if (it == enemyOwners_.end())
-                return nullptr;
-            ownerId = it->second;
-        }
-
-        std::lock_guard<std::mutex> guard(sessionsLock_);
-        const auto it = sessions_.find(ownerId);
-        return it != sessions_.end() ? it->second : nullptr;
-    }
-
-    /*-------------------
-     서버 권위 적(좀비) AI (멀티 맵 전용)
+     매치메이킹 / Room 생성
     -------------------*/
     void EchoServer::LoadEnemyObstacles(const std::string& path)
     {
-        enemyAi_.LoadObstacles(path);
+        // Stored, not applied to anything yet -- there's no Room to apply
+        // it to until a squad actually forms (see CreateRoomForSquad).
+        // Matches main.cpp's existing call site (before Start()), so no
+        // Room exists yet regardless.
+        enemyObstaclesPath_ = path;
     }
 
-    void EchoServer::RegisterServerEnemy(uint32_t enemyId, const FEnemyAiRecord& initial)
+    void EchoServer::EnqueueForMatch(std::shared_ptr<Session> session)
     {
-        enemyAi_.RegisterIfNew(enemyId, initial);
+        if (!session)
+            return;
+
+        // Prefer joining an existing room with room to spare over starting
+        // a fresh squad -- lets a friend join an in-progress raid instead
+        // of only ever forming brand new ones (see door_late_join_test's
+        // whole scenario: whoever's already mid-raid shouldn't become
+        // unreachable to a session that logs in a moment later). Room::
+        // AddSession fires Room::AnnounceNewMember, which gives this
+        // session the exact same roster/door-state replay a step-1-style
+        // single shared world always gave a late joiner.
+        {
+            std::lock_guard<std::mutex> guard(roomsLock_);
+            for (const auto& [roomId, room] : rooms_)
+            {
+                if (room->MemberCount() < kMaxSquadSize)
+                {
+                    room->AddSession(std::move(session));
+                    return;
+                }
+            }
+        }
+
+        // No room has space -- queue for a fresh squad instead (see
+        // Matchmaker.h: forms immediately once enough are queued, or after
+        // a short solo timeout if nobody else shows up).
+        matchmaker_.Enqueue(std::move(session));
     }
 
-    bool EchoServer::ApplyServerEnemyDamage(uint32_t enemyId, float damage)
+    void EchoServer::CreateRoomForSquad(std::vector<std::shared_ptr<Session>> squad)
     {
-        return enemyAi_.ApplyDamage(enemyId, damage);
+        if (squad.empty())
+            return;
+
+        const uint32_t roomId = nextRoomId_.fetch_add(1, std::memory_order_relaxed);
+        auto room = std::make_shared<Room>(roomId);
+        if (!enemyObstaclesPath_.empty())
+            room->LoadEnemyObstacles(enemyObstaclesPath_);
+
+        {
+            std::lock_guard<std::mutex> guard(roomsLock_);
+            rooms_.emplace(roomId, room);
+        }
+
+        std::printf("[Room %u] formed with %zu player(s)\n", roomId, squad.size());
+        for (auto& session : squad)
+            room->AddSession(std::move(session));
     }
 
-    void EchoServer::EnemyAiLoop()
+    void EchoServer::BackgroundTickLoop()
     {
         constexpr auto kTickInterval = std::chrono::milliseconds(150);
         auto lastTick = std::chrono::steady_clock::now();
@@ -554,77 +486,23 @@ namespace Wop
             const float deltaSeconds = std::chrono::duration<float>(now - lastTick).count();
             lastTick = now;
 
-            // Session id 0 never belongs to a real connection, so this
-            // snapshots every connected player -- there's no single
-            // "excluded" session for server-driven AI the way there is for
-            // a player's own broadcast. Session id travels along with the
-            // position now (not just a bare position) so an attack event
-            // can name WHO it landed on. Invisible sessions (C2S_SetVisible
-            // false -- left the shared multiplayer world for a Single map/
-            // hub/SafePlace while staying connected, see Session::IsVisible)
-            // are skipped entirely: their position_ stopped updating the
-            // moment they left, so leaving them in would let a zombie keep
-            // "chasing"/landing hits on a frozen, stale position from a map
-            // that player isn't even in anymore.
-            std::vector<FEnemyAiPlayerSnapshot> playerSnapshots;
-            for (const auto& session : SnapshotOtherSessions(0))
+            // Forms an under-sized (down to solo) squad for whoever's been
+            // waiting alone too long -- see Matchmaker::TickTimeouts.
+            matchmaker_.TickTimeouts();
+
+            // Snapshot the room list before ticking: CreateRoomForSquad or
+            // UnregisterSession's empty-room cleanup could otherwise race
+            // this loop iterating rooms_ directly.
+            std::vector<std::shared_ptr<Room>> roomsSnapshot;
             {
-                if (!session->IsVisible())
-                    continue;
-                const ProtoType::Net::Vec3 pos = session->GetPosition();
-                playerSnapshots.push_back({ session->GetId(), pos.x(), pos.y(), pos.z() });
+                std::lock_guard<std::mutex> guard(roomsLock_);
+                roomsSnapshot.reserve(rooms_.size());
+                for (const auto& [roomId, room] : rooms_)
+                    roomsSnapshot.push_back(room);
             }
 
-            const FEnemyTickResult tickResult = enemyAi_.Tick(deltaSeconds, playerSnapshots);
-
-            for (const auto& update : tickResult.stateUpdates)
-            {
-                flatbuffers::FlatBufferBuilder fbb;
-                const ProtoType::Net::Vec3 position(update.record.posX, update.record.posY, update.record.posZ);
-                const ProtoType::Net::Rotator look(0.0f, update.record.lookYaw, 0.0f);
-                auto state = ProtoType::Net::CreateS2C_EnemyState(
-                    fbb, update.enemyId, &position, &look, update.record.health, update.record.isDead);
-                auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_EnemyState, state.Union());
-                ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
-                Broadcast(0, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                          static_cast<uint32_t>(fbb.GetSize()));
-            }
-
-            for (const auto& attack : tickResult.attackEvents)
-            {
-                // Unicast, same trust tier as S2C_AttackResult -- the
-                // server decided this hit happened and how much it's
-                // worth, but the target's own client applies it to its own
-                // health (see S2C_EnemyAttackResult's schema comment).
-                std::shared_ptr<Session> targetSession;
-                {
-                    std::lock_guard<std::mutex> guard(sessionsLock_);
-                    const auto it = sessions_.find(attack.targetSessionId);
-                    if (it != sessions_.end())
-                        targetSession = it->second;
-                }
-                if (!targetSession)
-                    continue;
-
-                flatbuffers::FlatBufferBuilder fbb;
-                auto result = ProtoType::Net::CreateS2C_EnemyAttackResult(
-                    fbb, attack.enemyId, attack.targetSessionId, attack.damage);
-                auto packet = ProtoType::Net::CreatePacket(fbb, ProtoType::Net::Payload::S2C_EnemyAttackResult, result.Union());
-                ProtoType::Net::FinishSizePrefixedPacketBuffer(fbb, packet);
-                targetSession->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                                     static_cast<uint32_t>(fbb.GetSize()));
-
-                // Everyone else's mirrored copy of enemyId needs to see the
-                // swing too, not just the target's health drop -- see
-                // S2C_EnemyAttackBroadcast's schema comment.
-                flatbuffers::FlatBufferBuilder broadcastFbb;
-                auto broadcastMsg = ProtoType::Net::CreateS2C_EnemyAttackBroadcast(broadcastFbb, attack.enemyId);
-                auto broadcastPacket = ProtoType::Net::CreatePacket(
-                    broadcastFbb, ProtoType::Net::Payload::S2C_EnemyAttackBroadcast, broadcastMsg.Union());
-                ProtoType::Net::FinishSizePrefixedPacketBuffer(broadcastFbb, broadcastPacket);
-                Broadcast(0, reinterpret_cast<const char*>(broadcastFbb.GetBufferPointer()),
-                          static_cast<uint32_t>(broadcastFbb.GetSize()));
-            }
+            for (const auto& room : roomsSnapshot)
+                room->Tick(deltaSeconds);
         }
     }
 

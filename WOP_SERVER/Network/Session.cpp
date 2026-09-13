@@ -686,6 +686,14 @@ namespace Wop
                 if (!req || !req->item() || !req->item()->item_id())
                     break;
 
+                // Same server-side belt-and-suspenders as C2S_CompanionMoveInput
+                // above: the client's own SendDropItem is gated by
+                // bMultiplayerVisualsEnabled, but Broadcast() below doesn't
+                // filter by visibility, so drop this too if the sender has
+                // already left the Multi map.
+                if (!IsVisible())
+                    break;
+
                 flatbuffers::FlatBufferBuilder fbb;
                 auto itemIdOffset = fbb.CreateString(req->item()->item_id()->str());
                 const Vec3 position = req->item()->position() ? *req->item()->position() : Vec3(0.0f, 0.0f, 0.0f);
@@ -941,6 +949,18 @@ namespace Wop
             {
                 const auto* req = packet->payload_as_C2S_CompanionMoveInput();
                 if (!req)
+                    break;
+
+                // Server-side belt-and-suspenders on top of the client's own
+                // bMultiplayerVisualsEnabled gate (see
+                // UProtoNetClientSubsystem::SendCompanionMoveInput's comment
+                // for the "ghost companion" bug this used to let through):
+                // Broadcast() below doesn't filter by visibility (see
+                // EchoServer::SnapshotOtherSessions), so a companion update
+                // from a session that has left the Multi map (SafePlace/
+                // Single map, still connected) must be dropped here too,
+                // not just trusted to never be sent.
+                if (!IsVisible())
                     break;
 
                 // No separate companion login/session -- owner_id is this

@@ -1,4 +1,4 @@
-#include "EnemyAI.h"
+﻿#include "EnemyAI.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -98,7 +98,22 @@ namespace Wop
             const float targetDy = players[targetIdx].y - record.posY;
             const float nearestDist = std::sqrt(targetDx * targetDx + targetDy * targetDy);
 
-            if (nearestDist > record.attackRange)
+            // attackRange alone is pure 2D Euclidean distance -- it doesn't
+            // know a wall is in the way, so a zombie standing right against
+            // one side of a wall could keep landing hits on a player just
+            // as close on the OTHER side (문제: "벽 너머의 플레이어를
+            // 공격해"). obstacles_ already exists for movement steering
+            // below; reuse it here as a straight-line-of-sight test (radius
+            // 0 -- a thin sightline, not the inflated movement corridor
+            // check further down) so a LOS-blocked target counts as
+            // out-of-range: this enemy keeps trying to path around the wall
+            // (same steering as any other out-of-range case) instead of
+            // freezing in a spot where it can see nothing but a wall and
+            // hit a player it can't actually reach.
+            const bool hasLineOfSight = !obstacles_.SegmentBlocked(
+                record.posX, record.posY, players[targetIdx].x, players[targetIdx].y, 0.0f);
+
+            if (nearestDist > record.attackRange || !hasLineOfSight)
             {
                 // Out of range -- chasing, so the attack timer doesn't
                 // advance (see FEnemyAiRecord::attackCooldownRemaining):

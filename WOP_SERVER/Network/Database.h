@@ -98,15 +98,19 @@ namespace Wop
         bool SaveQuickSlots(int accountId, const std::vector<QuickSlotItemRecord>& items);
 
         /*-------------------
-         SafePlace 창고 (개인 보관함)
+         SafePlace 창고 (개인 보관함, 여러 개 -- 문제점09-12.txt #7 "창고 두개 1 2")
         -------------------*/
         // Same full-replace-in-one-transaction contract as
         // LoadInventory/SaveInventory, against dbo.PlayerStash instead of
         // dbo.PlayerInventoryItems -- see C2S_SaveStash's schema comment.
-        // Reuses InventoryItemRecord: the stash is a grid exactly like the
-        // player's own inventory, just a separate table keyed by AccountId.
-        bool LoadStash(int accountId, std::vector<InventoryItemRecord>& outItems);
-        bool SaveStash(int accountId, const std::vector<InventoryItemRecord>& items);
+        // Reuses InventoryItemRecord: each stash is a grid exactly like the
+        // player's own inventory, just a separate table keyed by
+        // (AccountId, StashIndex) instead of AccountId alone -- an account
+        // can have more than one independent stash (e.g. two placed
+        // AStorageContainer boxes in SafePlace, StashIndex 0 and 1), each
+        // saved/loaded separately.
+        bool LoadStash(int accountId, int stashIndex, std::vector<InventoryItemRecord>& outItems);
+        bool SaveStash(int accountId, int stashIndex, const std::vector<InventoryItemRecord>& items);
 
     private:
         Database() = default;

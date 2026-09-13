@@ -73,11 +73,13 @@ enum class Payload : uint8_t {
   C2S_RequestStash = 39,
   S2C_StashState = 40,
   C2S_SaveStash = 41,
+  C2S_DropItem = 42,
+  S2C_ItemDropped = 43,
   MIN = NONE,
-  MAX = C2S_SaveStash
+  MAX = S2C_ItemDropped
 };
 
-inline const Payload (&EnumValuesPayload())[42] {
+inline const Payload (&EnumValuesPayload())[44] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -120,13 +122,15 @@ inline const Payload (&EnumValuesPayload())[42] {
     Payload::C2S_SaveQuickSlots,
     Payload::C2S_RequestStash,
     Payload::S2C_StashState,
-    Payload::C2S_SaveStash
+    Payload::C2S_SaveStash,
+    Payload::C2S_DropItem,
+    Payload::S2C_ItemDropped
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[43] = {
+  static const char * const names[45] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -169,13 +173,15 @@ inline const char * const *EnumNamesPayload() {
     "C2S_RequestStash",
     "S2C_StashState",
     "C2S_SaveStash",
+    "C2S_DropItem",
+    "S2C_ItemDropped",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::C2S_SaveStash)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_ItemDropped)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -348,6 +354,14 @@ template<> struct PayloadTraits<ProtoType::Net::C2S_SaveStash> {
   static const Payload enum_value = Payload::C2S_SaveStash;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_DropItem> {
+  static const Payload enum_value = Payload::C2S_DropItem;
+};
+
+template<> struct PayloadTraits<ProtoType::Net::S2C_ItemDropped> {
+  static const Payload enum_value = Payload::S2C_ItemDropped;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -514,6 +528,14 @@ template<> struct PayloadUnionTraits<ProtoType::Net::S2C_StashStateT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::C2S_SaveStashT> {
   static const Payload enum_value = Payload::C2S_SaveStash;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_DropItemT> {
+  static const Payload enum_value = Payload::C2S_DropItem;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::S2C_ItemDroppedT> {
+  static const Payload enum_value = Payload::S2C_ItemDropped;
 };
 
 struct PayloadUnion {
@@ -874,6 +896,22 @@ struct PayloadUnion {
     return type == Payload::C2S_SaveStash ?
       reinterpret_cast<const ProtoType::Net::C2S_SaveStashT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_DropItemT *AsC2S_DropItem() {
+    return type == Payload::C2S_DropItem ?
+      reinterpret_cast<ProtoType::Net::C2S_DropItemT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_DropItemT *AsC2S_DropItem() const {
+    return type == Payload::C2S_DropItem ?
+      reinterpret_cast<const ProtoType::Net::C2S_DropItemT *>(value) : nullptr;
+  }
+  ProtoType::Net::S2C_ItemDroppedT *AsS2C_ItemDropped() {
+    return type == Payload::S2C_ItemDropped ?
+      reinterpret_cast<ProtoType::Net::S2C_ItemDroppedT *>(value) : nullptr;
+  }
+  const ProtoType::Net::S2C_ItemDroppedT *AsS2C_ItemDropped() const {
+    return type == Payload::S2C_ItemDropped ?
+      reinterpret_cast<const ProtoType::Net::S2C_ItemDroppedT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -1023,6 +1061,12 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::C2S_SaveStash *payload_as_C2S_SaveStash() const {
     return payload_type() == ProtoType::Net::Payload::C2S_SaveStash ? static_cast<const ProtoType::Net::C2S_SaveStash *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_DropItem *payload_as_C2S_DropItem() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_DropItem ? static_cast<const ProtoType::Net::C2S_DropItem *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::S2C_ItemDropped *payload_as_S2C_ItemDropped() const {
+    return payload_type() == ProtoType::Net::Payload::S2C_ItemDropped ? static_cast<const ProtoType::Net::S2C_ItemDropped *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -1199,6 +1243,14 @@ template<> inline const ProtoType::Net::S2C_StashState *Packet::payload_as<Proto
 
 template<> inline const ProtoType::Net::C2S_SaveStash *Packet::payload_as<ProtoType::Net::C2S_SaveStash>() const {
   return payload_as_C2S_SaveStash();
+}
+
+template<> inline const ProtoType::Net::C2S_DropItem *Packet::payload_as<ProtoType::Net::C2S_DropItem>() const {
+  return payload_as_C2S_DropItem();
+}
+
+template<> inline const ProtoType::Net::S2C_ItemDropped *Packet::payload_as<ProtoType::Net::S2C_ItemDropped>() const {
+  return payload_as_S2C_ItemDropped();
 }
 
 struct PacketBuilder {
@@ -1438,6 +1490,14 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveStash *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_DropItem: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_DropItem *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Payload::S2C_ItemDropped: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemDropped *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -1622,6 +1682,14 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveStash *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_DropItem: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_DropItem *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case Payload::S2C_ItemDropped: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemDropped *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -1793,6 +1861,14 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::C2S_SaveStashT *>(value);
       return CreateC2S_SaveStash(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_DropItem: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_DropItemT *>(value);
+      return CreateC2S_DropItem(_fbb, ptr, _rehasher).Union();
+    }
+    case Payload::S2C_ItemDropped: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::S2C_ItemDroppedT *>(value);
+      return CreateS2C_ItemDropped(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -1961,6 +2037,14 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::C2S_SaveStash: {
       value = new ProtoType::Net::C2S_SaveStashT(*reinterpret_cast<ProtoType::Net::C2S_SaveStashT *>(u.value));
+      break;
+    }
+    case Payload::C2S_DropItem: {
+      value = new ProtoType::Net::C2S_DropItemT(*reinterpret_cast<ProtoType::Net::C2S_DropItemT *>(u.value));
+      break;
+    }
+    case Payload::S2C_ItemDropped: {
+      value = new ProtoType::Net::S2C_ItemDroppedT(*reinterpret_cast<ProtoType::Net::S2C_ItemDroppedT *>(u.value));
       break;
     }
     default:
@@ -2172,6 +2256,16 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::C2S_SaveStash: {
       auto ptr = reinterpret_cast<ProtoType::Net::C2S_SaveStashT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_DropItem: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_DropItemT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::S2C_ItemDropped: {
+      auto ptr = reinterpret_cast<ProtoType::Net::S2C_ItemDroppedT *>(value);
       delete ptr;
       break;
     }

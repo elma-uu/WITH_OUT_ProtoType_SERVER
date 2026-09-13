@@ -148,6 +148,20 @@ namespace Wop
         // should fall back to the client-ownership relay in that case).
         bool ApplyServerEnemyDamage(uint32_t enemyId, float damage);
 
+        // Forgets every claim this server run has accumulated for container
+        // loot/item spawns/pickups/doors/enemies -- see UnregisterSession's
+        // old comment (kept here) for why an un-expiring claim otherwise
+        // means the map never sees fresh content again. Reset trigger is
+        // "no VISIBLE session remains" (Session::IsVisible(), which tracks
+        // "currently in a Multi map" -- see its own comment), NOT "the
+        // server has zero connections" -- a Multi map that everyone leaves
+        // (for SafePlace/Single, or by disconnecting) should reset even
+        // while other people stay connected elsewhere. Called from
+        // UnregisterSession (a disconnect) and from Session's
+        // C2S_SetVisible(false) handler (left the Multi map without
+        // disconnecting) -- either can be the one that empties it out.
+        void ResetWorldStateIfMultiMapEmpty();
+
     private:
         static constexpr ULONG kCompletionQueueSize = 8192;
 

@@ -315,10 +315,54 @@ namespace Wop
         closesocket(clientSocket);
     }
 
+    void EchoServer::ResetWorldStateIfMultiMapEmpty()
+    {
+        // Session id 0 never belongs to a real connection -- same
+        // "snapshot everyone" idiom EnemyAiLoop uses.
+        for (const auto& session : SnapshotOtherSessions(0))
+        {
+            if (session->IsVisible())
+            {
+                // Someone's still in the Multi map -- their loot/doors/
+                // enemies are still "the current game", not stale.
+                return;
+            }
+        }
+
+        // Forget every claim this server run has accumulated for container
+        // loot/item spawns/pickups/doors/enemies, so the next player(s) to
+        // enter the Multi map start a genuinely fresh world instead of one
+        // where, say, half the loot from three test sessions ago is
+        // permanently already-claimed (see ClaimItemPickup/
+        // ClaimContainerLoot/ClaimItemSpawnRoll -- these have no expiry, a
+        // claimed slot stays claimed for this process's whole lifetime
+        // otherwise) or every zombie someone killed earlier is still
+        // registered as dead with nothing left to fight on the next visit.
+        // Doesn't touch per-account DB state (progress/inventory) -- only
+        // this in-memory, not-tied-to-any-account world state.
+        {
+            std::lock_guard<std::mutex> guard(itemPickupLock_);
+            pickedUpItems_.clear();
+        }
+        {
+            std::lock_guard<std::mutex> guard(itemSpawnLock_);
+            itemSpawnRolls_.clear();
+        }
+        {
+            std::lock_guard<std::mutex> guard(containerLootLock_);
+            containerLoot_.clear();
+        }
+        {
+            std::lock_guard<std::mutex> guard(doorStateLock_);
+            doorStates_.clear();
+        }
+        enemyAi_.Reset();
+        std::printf("Multi map empty (no visible sessions left) -- world state (loot/pickups/doors/enemies) reset for the next visit.\n");
+    }
+
     void EchoServer::UnregisterSession(uint32_t sessionId)
     {
         std::shared_ptr<Session> keepAlive;
-        bool bServerNowEmpty = false;
         {
             std::lock_guard<std::mutex> guard(sessionsLock_);
             auto it = sessions_.find(sessionId);
@@ -326,42 +370,15 @@ namespace Wop
             {
                 keepAlive = std::move(it->second);
                 sessions_.erase(it);
-                bServerNowEmpty = sessions_.empty();
             }
         }
 
-        // Last player just left: forget every claim this server run has
-        // accumulated for container loot/item spawns/pickups/doors/enemies,
-        // so the next player(s) to join start a genuinely fresh world
-        // instead of one where, say, half the loot from three test sessions
-        // ago is permanently already-claimed (see ClaimItemPickup/
-        // ClaimContainerLoot/ClaimItemSpawnRoll -- these have no expiry, a
-        // claimed slot stays claimed for this process's whole lifetime
-        // otherwise) or every zombie someone killed hours ago is still
-        // registered as dead. Doesn't touch per-account DB state (progress/
-        // inventory) -- only this in-memory, not-tied-to-any-account world
-        // state.
-        if (bServerNowEmpty)
-        {
-            {
-                std::lock_guard<std::mutex> guard(itemPickupLock_);
-                pickedUpItems_.clear();
-            }
-            {
-                std::lock_guard<std::mutex> guard(itemSpawnLock_);
-                itemSpawnRolls_.clear();
-            }
-            {
-                std::lock_guard<std::mutex> guard(containerLootLock_);
-                containerLoot_.clear();
-            }
-            {
-                std::lock_guard<std::mutex> guard(doorStateLock_);
-                doorStates_.clear();
-            }
-            enemyAi_.Reset();
-            std::printf("Server empty -- world state (loot/pickups/doors/enemies) reset for the next session.\n");
-        }
+        // A disconnecting session was, by definition, still in the
+        // SnapshotOtherSessions() list an instant ago -- if it was the last
+        // VISIBLE one (or the server's simply empty now), this is what
+        // resets the Multi map's world state. See this function's own
+        // comment for why "visible", not "connected", is the right signal.
+        ResetWorldStateIfMultiMapEmpty();
 
         if (keepAlive)
         {

@@ -169,16 +169,19 @@ namespace Wop
               "StackCount SMALLINT NOT NULL DEFAULT 1, "
               "PRIMARY KEY (AccountId, SlotIndex))" },
             // Same shape as PlayerInventoryItems -- a grid stash, just keyed
-            // by AccountId with no character/level attached (see
-            // C2S_SaveStash's schema comment). No natural per-row unique key
-            // beyond an identity, since one account can stash more than one
-            // stack at the same-looking position over the delete/reinsert
-            // cycle isn't possible anyway (SaveStash always deletes all of
-            // this account's rows first).
+            // by (AccountId, StashIndex) instead of AccountId alone (an
+            // account can have more than one independent stash -- see
+            // LoadStash/SaveStash's header comment) with no character/level
+            // attached (see C2S_SaveStash's schema comment). No natural
+            // per-row unique key beyond an identity, since one account can
+            // stash more than one stack at the same-looking position over
+            // the delete/reinsert cycle isn't possible anyway (SaveStash
+            // always deletes all of this account+stash's rows first).
             { "PlayerStash",
               "CREATE TABLE dbo.PlayerStash ("
               "Id INT IDENTITY(1,1) PRIMARY KEY, "
               "AccountId INT NOT NULL, "
+              "StashIndex TINYINT NOT NULL DEFAULT 0, "
               "ItemId VARCHAR(64) NOT NULL, "
               "GridX SMALLINT NOT NULL DEFAULT 0, "
               "GridY SMALLINT NOT NULL DEFAULT 0, "
@@ -226,6 +229,50 @@ namespace Wop
             else
             {
                 std::printf("[DB] Created missing table dbo.%s\n", table.name);
+            }
+        }
+
+        // Migration for a dbo.PlayerStash created by an earlier version of
+        // this server (before #7 "창고 두개 1 2" added StashIndex) -- the
+        // loop above only creates the table if it's missing entirely, so an
+        // already-existing one needs its own ALTER TABLE. Every existing
+        // row predates per-stash indexing and implicitly belongs to stash 0
+        // (the column default), which is exactly right: whatever was
+        // already stashed stays visible in the FIRST box, nothing is lost.
+        {
+            SQLHSTMT checkColStmt = SQL_NULL_HSTMT;
+            SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &checkColStmt);
+            StmtGuard checkColGuard(checkColStmt);
+            const SQLRETURN checkColRet = SQLExecDirectA(checkColStmt,
+                const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                    "SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.PlayerStash') AND name = 'StashIndex'")),
+                SQL_NTS);
+            if (checkColRet == SQL_SUCCESS || checkColRet == SQL_SUCCESS_WITH_INFO)
+            {
+                const SQLRETURN colFetchRet = SQLFetch(checkColStmt);
+                const bool columnAlreadyExists = colFetchRet == SQL_SUCCESS || colFetchRet == SQL_SUCCESS_WITH_INFO;
+                if (!columnAlreadyExists)
+                {
+                    SQLHSTMT alterStmt = SQL_NULL_HSTMT;
+                    SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &alterStmt);
+                    StmtGuard alterGuard(alterStmt);
+                    const SQLRETURN alterRet = SQLExecDirectA(alterStmt,
+                        const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
+                            "ALTER TABLE dbo.PlayerStash ADD StashIndex TINYINT NOT NULL DEFAULT 0")),
+                        SQL_NTS);
+                    if (alterRet != SQL_SUCCESS && alterRet != SQL_SUCCESS_WITH_INFO)
+                    {
+                        LogDiag("EnsureSchema: ALTER TABLE PlayerStash ADD StashIndex", SQL_HANDLE_STMT, alterStmt);
+                    }
+                    else
+                    {
+                        std::printf("[DB] Migrated dbo.PlayerStash: added StashIndex column (existing rows default to stash 0).\n");
+                    }
+                }
+            }
+            else
+            {
+                LogDiag("EnsureSchema: SELECT sys.columns (PlayerStash.StashIndex)", SQL_HANDLE_STMT, checkColStmt);
             }
         }
     }
@@ -869,7 +916,7 @@ namespace Wop
         return ok;
     }
 
-    bool Database::LoadStash(int accountId, std::vector<InventoryItemRecord>& outItems)
+    bool Database::LoadStash(int accountId, int stashIndex, std::vector<InventoryItemRecord>& outItems)
     {
         std::lock_guard<std::mutex> guard(lock_);
         if (!connected_)
@@ -882,12 +929,14 @@ namespace Wop
         StmtGuard stmtGuard(stmt);
 
         SQLINTEGER accId = accountId;
+        SQLSMALLINT stashIdx = static_cast<SQLSMALLINT>(stashIndex);
         SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+        SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &stashIdx, 0, nullptr);
 
         const SQLRETURN ret = SQLExecDirectA(stmt,
             const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
                 "SELECT ItemId, GridX, GridY, IsRotated, StackCount "
-                "FROM dbo.PlayerStash WHERE AccountId = ?")),
+                "FROM dbo.PlayerStash WHERE AccountId = ? AND StashIndex = ?")),
             SQL_NTS);
         if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
         {
@@ -931,26 +980,30 @@ namespace Wop
         return true;
     }
 
-    bool Database::SaveStash(int accountId, const std::vector<InventoryItemRecord>& items)
+    bool Database::SaveStash(int accountId, int stashIndex, const std::vector<InventoryItemRecord>& items)
     {
         std::lock_guard<std::mutex> guard(lock_);
         if (!connected_)
             return false;
 
-        // Same full-replace-in-one-transaction contract as SaveInventory.
+        // Same full-replace-in-one-transaction contract as SaveInventory,
+        // scoped to (accountId, stashIndex) -- the OTHER stash's rows are
+        // untouched.
         SQLSetConnectAttr(hdbc_, SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_OFF), 0);
 
         bool ok = true;
         SQLINTEGER accId = accountId;
+        SQLSMALLINT stashIdx = static_cast<SQLSMALLINT>(stashIndex);
 
         {
             SQLHSTMT deleteStmt = SQL_NULL_HSTMT;
             SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &deleteStmt);
             StmtGuard deleteGuard(deleteStmt);
             SQLBindParameter(deleteStmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
+            SQLBindParameter(deleteStmt, 2, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &stashIdx, 0, nullptr);
             const SQLRETURN ret = SQLExecDirectA(deleteStmt,
                 const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
-                    "DELETE FROM dbo.PlayerStash WHERE AccountId = ?")),
+                    "DELETE FROM dbo.PlayerStash WHERE AccountId = ? AND StashIndex = ?")),
                 SQL_NTS);
             if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO && ret != SQL_NO_DATA)
             {
@@ -976,15 +1029,16 @@ namespace Wop
             uint8_t rotated = item.rotated ? 1 : 0;
             SQLSMALLINT stackCount = item.stackCount;
             SQLBindParameter(insertStmt, 2, SQL_PARAM_INPUT, SQL_C_LONG, SQL_INTEGER, 0, 0, &accId, 0, nullptr);
-            SQLBindParameter(insertStmt, 3, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &gridX, 0, nullptr);
-            SQLBindParameter(insertStmt, 4, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &gridY, 0, nullptr);
-            SQLBindParameter(insertStmt, 5, SQL_PARAM_INPUT, SQL_C_BIT, SQL_BIT, 0, 0, &rotated, 0, nullptr);
-            SQLBindParameter(insertStmt, 6, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &stackCount, 0, nullptr);
+            SQLBindParameter(insertStmt, 3, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &stashIdx, 0, nullptr);
+            SQLBindParameter(insertStmt, 4, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &gridX, 0, nullptr);
+            SQLBindParameter(insertStmt, 5, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &gridY, 0, nullptr);
+            SQLBindParameter(insertStmt, 6, SQL_PARAM_INPUT, SQL_C_BIT, SQL_BIT, 0, 0, &rotated, 0, nullptr);
+            SQLBindParameter(insertStmt, 7, SQL_PARAM_INPUT, SQL_C_SHORT, SQL_SMALLINT, 0, 0, &stackCount, 0, nullptr);
 
             const SQLRETURN ret = SQLExecDirectA(insertStmt,
                 const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(
-                    "INSERT INTO dbo.PlayerStash (ItemId, AccountId, GridX, GridY, IsRotated, StackCount) "
-                    "VALUES (?, ?, ?, ?, ?, ?)")),
+                    "INSERT INTO dbo.PlayerStash (ItemId, AccountId, StashIndex, GridX, GridY, IsRotated, StackCount) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)")),
                 SQL_NTS);
             if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
             {

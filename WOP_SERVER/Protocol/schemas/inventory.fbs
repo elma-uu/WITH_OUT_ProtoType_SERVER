@@ -55,24 +55,33 @@ table C2S_SaveQuickSlots {
 // (this is per-account data, not something other players should see about
 // each other -- unlike a loot container's shared, world-visible contents).
 // Silently ignored for guest (non-account) sessions, same trust tier as
-// C2S_SaveInventory.
+// C2S_SaveInventory. stash_index distinguishes independent stashes for the
+// same account (e.g. two placed AStorageContainer boxes in SafePlace --
+// AStorageContainer::StashIndex, "1"/"2" in the level, 0/1 on the wire) --
+// see 문제점09-12.txt #7 "창고 두개 1 2".
 table C2S_RequestStash {
+  stash_index: ubyte = 0;
 }
 
 // Reply to C2S_RequestStash, and also sent whenever this account's stash
 // changes are saved (so multiple SafePlace instances -- e.g. reconnecting --
-// see a consistent view). Reuses InventoryItemEntry: the stash is a grid
+// see a consistent view). Reuses InventoryItemEntry: each stash is a grid
 // exactly like the player's own inventory, just stored under a different
-// table (dbo.PlayerStash) and keyed by AccountId instead of being carried on
-// the character.
+// table (dbo.PlayerStash) and keyed by (AccountId, stash_index) instead of
+// being carried on the character. stash_index echoes which stash this is,
+// so AStorageContainer can tell its own reply apart from its sibling box's
+// (every box in the level shares this one broadcast delegate -- same
+// "filter by id" reasoning as OnContainerLootState's ContainerId).
 table S2C_StashState {
+  stash_index: ubyte = 0;
   items: [InventoryItemEntry];
 }
 
 // Same "always full contents, not a diff" contract as C2S_SaveInventory --
-// sent whenever the player's SafePlace stash grid changes. No reply (the
-// client is the source of truth for its own just-made edit); silently
-// ignored for guest sessions.
+// sent whenever one of the player's SafePlace stash grids changes. No reply
+// (the client is the source of truth for its own just-made edit); silently
+// ignored for guest sessions. stash_index: see C2S_RequestStash's comment.
 table C2S_SaveStash {
+  stash_index: ubyte = 0;
   items: [InventoryItemEntry];
 }

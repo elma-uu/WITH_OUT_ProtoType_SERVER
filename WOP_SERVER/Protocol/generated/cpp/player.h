@@ -14,6 +14,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
              "Non-compatible flatbuffers version included");
 
 #include "common.h"
+#include "item.h"
 
 namespace ProtoType {
 namespace Net {
@@ -608,15 +609,29 @@ struct C2S_SetVisible::Traits {
 
 struct C2S_PlayerDiedT : public ::flatbuffers::NativeTable {
   typedef C2S_PlayerDied TableType;
+  std::vector<std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>> items{};
+  C2S_PlayerDiedT() = default;
+  C2S_PlayerDiedT(const C2S_PlayerDiedT &o);
+  C2S_PlayerDiedT(C2S_PlayerDiedT&&) FLATBUFFERS_NOEXCEPT = default;
+  C2S_PlayerDiedT &operator=(C2S_PlayerDiedT o) FLATBUFFERS_NOEXCEPT;
 };
 
 struct C2S_PlayerDied FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef C2S_PlayerDiedT NativeTableType;
   typedef C2S_PlayerDiedBuilder Builder;
   struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ITEMS = 4
+  };
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *items() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *>(VT_ITEMS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ITEMS) &&
+           verifier.VerifyVector(items()) &&
+           verifier.VerifyVectorOfTables(items()) &&
            verifier.EndTable();
   }
   C2S_PlayerDiedT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -628,6 +643,9 @@ struct C2S_PlayerDiedBuilder {
   typedef C2S_PlayerDied Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
+  void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>> items) {
+    fbb_.AddOffset(C2S_PlayerDied::VT_ITEMS, items);
+  }
   explicit C2S_PlayerDiedBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -640,8 +658,10 @@ struct C2S_PlayerDiedBuilder {
 };
 
 inline ::flatbuffers::Offset<C2S_PlayerDied> CreateC2S_PlayerDied(
-    ::flatbuffers::FlatBufferBuilder &_fbb) {
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>> items = 0) {
   C2S_PlayerDiedBuilder builder_(_fbb);
+  builder_.add_items(items);
   return builder_.Finish();
 }
 
@@ -650,11 +670,25 @@ struct C2S_PlayerDied::Traits {
   static auto constexpr Create = CreateC2S_PlayerDied;
 };
 
+inline ::flatbuffers::Offset<C2S_PlayerDied> CreateC2S_PlayerDiedDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *items = nullptr) {
+  auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>(*items) : 0;
+  return ProtoType::Net::CreateC2S_PlayerDied(
+      _fbb,
+      items__);
+}
+
 ::flatbuffers::Offset<C2S_PlayerDied> CreateC2S_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct S2C_PlayerDiedT : public ::flatbuffers::NativeTable {
   typedef S2C_PlayerDied TableType;
   uint32_t player_id = 0;
+  std::vector<std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>> items{};
+  S2C_PlayerDiedT() = default;
+  S2C_PlayerDiedT(const S2C_PlayerDiedT &o);
+  S2C_PlayerDiedT(S2C_PlayerDiedT&&) FLATBUFFERS_NOEXCEPT = default;
+  S2C_PlayerDiedT &operator=(S2C_PlayerDiedT o) FLATBUFFERS_NOEXCEPT;
 };
 
 struct S2C_PlayerDied FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -662,15 +696,22 @@ struct S2C_PlayerDied FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef S2C_PlayerDiedBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PLAYER_ID = 4
+    VT_PLAYER_ID = 4,
+    VT_ITEMS = 6
   };
   uint32_t player_id() const {
     return GetField<uint32_t>(VT_PLAYER_ID, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *items() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *>(VT_ITEMS);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_PLAYER_ID, 4) &&
+           VerifyOffset(verifier, VT_ITEMS) &&
+           verifier.VerifyVector(items()) &&
+           verifier.VerifyVectorOfTables(items()) &&
            verifier.EndTable();
   }
   S2C_PlayerDiedT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -685,6 +726,9 @@ struct S2C_PlayerDiedBuilder {
   void add_player_id(uint32_t player_id) {
     fbb_.AddElement<uint32_t>(S2C_PlayerDied::VT_PLAYER_ID, player_id, 0);
   }
+  void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>> items) {
+    fbb_.AddOffset(S2C_PlayerDied::VT_ITEMS, items);
+  }
   explicit S2C_PlayerDiedBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -698,8 +742,10 @@ struct S2C_PlayerDiedBuilder {
 
 inline ::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDied(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t player_id = 0) {
+    uint32_t player_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>> items = 0) {
   S2C_PlayerDiedBuilder builder_(_fbb);
+  builder_.add_items(items);
   builder_.add_player_id(player_id);
   return builder_.Finish();
 }
@@ -708,6 +754,17 @@ struct S2C_PlayerDied::Traits {
   using type = S2C_PlayerDied;
   static auto constexpr Create = CreateS2C_PlayerDied;
 };
+
+inline ::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDiedDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t player_id = 0,
+    const std::vector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> *items = nullptr) {
+  auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>>(*items) : 0;
+  return ProtoType::Net::CreateS2C_PlayerDied(
+      _fbb,
+      player_id,
+      items__);
+}
 
 ::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
@@ -929,6 +986,16 @@ inline ::flatbuffers::Offset<C2S_SetVisible> C2S_SetVisible::Pack(::flatbuffers:
       _visible);
 }
 
+inline C2S_PlayerDiedT::C2S_PlayerDiedT(const C2S_PlayerDiedT &o) {
+  items.reserve(o.items.size());
+  for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::WorldSpawnedItemEntryT(*items_) : nullptr); }
+}
+
+inline C2S_PlayerDiedT &C2S_PlayerDiedT::operator=(C2S_PlayerDiedT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(items, o.items);
+  return *this;
+}
+
 inline C2S_PlayerDiedT *C2S_PlayerDied::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<C2S_PlayerDiedT>();
   UnPackTo(_o.get(), _resolver);
@@ -938,6 +1005,7 @@ inline C2S_PlayerDiedT *C2S_PlayerDied::UnPack(const ::flatbuffers::resolver_fun
 inline void C2S_PlayerDied::UnPackTo(C2S_PlayerDiedT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
+  { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
 }
 
 inline ::flatbuffers::Offset<C2S_PlayerDied> CreateC2S_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -948,8 +1016,22 @@ inline ::flatbuffers::Offset<C2S_PlayerDied> C2S_PlayerDied::Pack(::flatbuffers:
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_PlayerDiedT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateWorldSpawnedItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
   return ProtoType::Net::CreateC2S_PlayerDied(
-      _fbb);
+      _fbb,
+      _items);
+}
+
+inline S2C_PlayerDiedT::S2C_PlayerDiedT(const S2C_PlayerDiedT &o)
+      : player_id(o.player_id) {
+  items.reserve(o.items.size());
+  for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::WorldSpawnedItemEntryT(*items_) : nullptr); }
+}
+
+inline S2C_PlayerDiedT &S2C_PlayerDiedT::operator=(S2C_PlayerDiedT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(player_id, o.player_id);
+  std::swap(items, o.items);
+  return *this;
 }
 
 inline S2C_PlayerDiedT *S2C_PlayerDied::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
@@ -962,6 +1044,7 @@ inline void S2C_PlayerDied::UnPackTo(S2C_PlayerDiedT *_o, const ::flatbuffers::r
   (void)_o;
   (void)_resolver;
   { auto _e = player_id(); _o->player_id = _e; }
+  { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
 }
 
 inline ::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -973,9 +1056,11 @@ inline ::flatbuffers::Offset<S2C_PlayerDied> S2C_PlayerDied::Pack(::flatbuffers:
   (void)_o;
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_PlayerDiedT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _player_id = _o->player_id;
+  auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateWorldSpawnedItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
   return ProtoType::Net::CreateS2C_PlayerDied(
       _fbb,
-      _player_id);
+      _player_id,
+      _items);
 }
 
 }  // namespace Net

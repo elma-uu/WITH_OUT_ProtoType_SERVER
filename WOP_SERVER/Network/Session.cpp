@@ -620,8 +620,11 @@ namespace Wop
                 if (accountId_ < 0)
                     break;
 
+                const auto* req = packet->payload_as_C2S_RequestStash();
+                const uint8_t stashIndex = req ? req->stash_index() : 0;
+
                 std::vector<InventoryItemRecord> stashItems;
-                Database::Get().LoadStash(accountId_, stashItems);
+                Database::Get().LoadStash(accountId_, stashIndex, stashItems);
 
                 flatbuffers::FlatBufferBuilder fbb;
                 std::vector<flatbuffers::Offset<InventoryItemEntry>> itemOffsets;
@@ -633,7 +636,7 @@ namespace Wop
                         fbb, itemIdOffset, item.gridX, item.gridY, item.rotated, item.stackCount));
                 }
                 auto itemVector = fbb.CreateVector(itemOffsets);
-                auto state = CreateS2C_StashState(fbb, itemVector);
+                auto state = CreateS2C_StashState(fbb, stashIndex, itemVector);
                 auto reply = CreatePacket(fbb, Payload::S2C_StashState, state.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
                 EnqueueEcho(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
@@ -667,7 +670,31 @@ namespace Wop
                     items.push_back(std::move(record));
                 }
 
-                Database::Get().SaveStash(accountId_, items);
+                Database::Get().SaveStash(accountId_, req->stash_index(), items);
+                break;
+            }
+
+            case Payload::C2S_DropItem:
+            {
+                // Pure relay to every OTHER client -- see S2C_ItemDropped's
+                // schema comment for why: the dropper already spawned its
+                // own copy optimistically and doesn't need this echoed back,
+                // and player_id must be stamped here (id_), not trusted from
+                // the client, the same "server decides" rule C2S_MoveInput
+                // follows for its own position.
+                const auto* req = packet->payload_as_C2S_DropItem();
+                if (!req || !req->item() || !req->item()->item_id())
+                    break;
+
+                flatbuffers::FlatBufferBuilder fbb;
+                auto itemIdOffset = fbb.CreateString(req->item()->item_id()->str());
+                const Vec3 position = req->item()->position() ? *req->item()->position() : Vec3(0.0f, 0.0f, 0.0f);
+                auto itemEntry = CreateWorldSpawnedItemEntry(fbb, itemIdOffset, &position, req->item()->stack_count());
+                auto dropped = CreateS2C_ItemDropped(fbb, id_, req->drop_sequence(), itemEntry);
+                auto reply = CreatePacket(fbb, Payload::S2C_ItemDropped, dropped.Union());
+                FinishSizePrefixedPacketBuffer(fbb, reply);
+                server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                   static_cast<uint32_t>(fbb.GetSize()));
                 break;
             }
 
@@ -699,17 +726,45 @@ namespace Wop
                     FinishSizePrefixedPacketBuffer(fbb, reply);
                     server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                        static_cast<uint32_t>(fbb.GetSize()));
+
+                    // This session just left the Multi map without
+                    // disconnecting -- if it was the last one still in it,
+                    // reset the Multi map's world state (loot/doors/enemies)
+                    // the same as a disconnect would. See
+                    // EchoServer::ResetWorldStateIfMultiMapEmpty's comment.
+                    server_.ResetWorldStateIfMultiMapEmpty();
                 }
                 break;
             }
 
             case Payload::C2S_PlayerDied:
             {
-                // No fields to validate -- player_id is always id_ (see
-                // this message's schema comment), so there's nothing this
-                // session could get wrong here the way a claimed id could.
+                // player_id is always id_ (see this message's schema
+                // comment), so there's nothing to validate there the way a
+                // claimed id could go wrong -- but items is trusted,
+                // unmodified, straight from the dying client (same trust
+                // tier as C2S_AttackRequest's damage; see S2C_PlayerDied's
+                // schema comment). Pure relay, no server-side arbitration
+                // needed (unlike C2S_ItemSpawnRoll/ContainerLootRoll) since
+                // only the one dying client ever proposes this drop.
+                const auto* req = packet->payload_as_C2S_PlayerDied();
+
                 flatbuffers::FlatBufferBuilder fbb;
-                auto died = CreateS2C_PlayerDied(fbb, id_);
+                std::vector<flatbuffers::Offset<WorldSpawnedItemEntry>> itemOffsets;
+                if (req && req->items())
+                {
+                    itemOffsets.reserve(req->items()->size());
+                    for (const auto* entry : *req->items())
+                    {
+                        if (!entry || !entry->item_id())
+                            continue;
+                        auto itemIdOffset = fbb.CreateString(entry->item_id()->str());
+                        const Vec3 position = entry->position() ? *entry->position() : Vec3(0.0f, 0.0f, 0.0f);
+                        itemOffsets.push_back(CreateWorldSpawnedItemEntry(fbb, itemIdOffset, &position, entry->stack_count()));
+                    }
+                }
+                auto itemsVector = fbb.CreateVector(itemOffsets);
+                auto died = CreateS2C_PlayerDied(fbb, id_, itemsVector);
                 auto reply = CreatePacket(fbb, Payload::S2C_PlayerDied, died.Union());
                 FinishSizePrefixedPacketBuffer(fbb, reply);
                 server_.Broadcast(id_, reinterpret_cast<const char*>(fbb.GetBufferPointer()),
@@ -1107,6 +1162,7 @@ namespace Wop
                  type == ProtoType::Net::Payload::C2S_SaveQuickSlots ||
                  type == ProtoType::Net::Payload::C2S_RequestStash ||
                  type == ProtoType::Net::Payload::C2S_SaveStash ||
+                 type == ProtoType::Net::Payload::C2S_DropItem ||
                  type == ProtoType::Net::Payload::C2S_SetVisible ||
                  type == ProtoType::Net::Payload::C2S_ContainerLootRoll ||
                  type == ProtoType::Net::Payload::C2S_CompanionMoveInput ||

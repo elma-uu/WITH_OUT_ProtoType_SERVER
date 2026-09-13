@@ -51,6 +51,14 @@ struct S2C_ItemSpawnState;
 struct S2C_ItemSpawnStateBuilder;
 struct S2C_ItemSpawnStateT;
 
+struct C2S_DropItem;
+struct C2S_DropItemBuilder;
+struct C2S_DropItemT;
+
+struct S2C_ItemDropped;
+struct S2C_ItemDroppedBuilder;
+struct S2C_ItemDroppedT;
+
 enum class ItemUseType : int8_t {
   Consume = 0,
   Equip = 1,
@@ -823,6 +831,167 @@ inline ::flatbuffers::Offset<S2C_ItemSpawnState> CreateS2C_ItemSpawnStateDirect(
 
 ::flatbuffers::Offset<S2C_ItemSpawnState> CreateS2C_ItemSpawnState(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemSpawnStateT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct C2S_DropItemT : public ::flatbuffers::NativeTable {
+  typedef C2S_DropItem TableType;
+  uint32_t drop_sequence = 0;
+  std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT> item{};
+  C2S_DropItemT() = default;
+  C2S_DropItemT(const C2S_DropItemT &o);
+  C2S_DropItemT(C2S_DropItemT&&) FLATBUFFERS_NOEXCEPT = default;
+  C2S_DropItemT &operator=(C2S_DropItemT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct C2S_DropItem FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_DropItemT NativeTableType;
+  typedef C2S_DropItemBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_DROP_SEQUENCE = 4,
+    VT_ITEM = 6
+  };
+  uint32_t drop_sequence() const {
+    return GetField<uint32_t>(VT_DROP_SEQUENCE, 0);
+  }
+  const ProtoType::Net::WorldSpawnedItemEntry *item() const {
+    return GetPointer<const ProtoType::Net::WorldSpawnedItemEntry *>(VT_ITEM);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_DROP_SEQUENCE, 4) &&
+           VerifyOffset(verifier, VT_ITEM) &&
+           verifier.VerifyTable(item()) &&
+           verifier.EndTable();
+  }
+  C2S_DropItemT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_DropItemT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_DropItem> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_DropItemT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_DropItemBuilder {
+  typedef C2S_DropItem Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_drop_sequence(uint32_t drop_sequence) {
+    fbb_.AddElement<uint32_t>(C2S_DropItem::VT_DROP_SEQUENCE, drop_sequence, 0);
+  }
+  void add_item(::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry> item) {
+    fbb_.AddOffset(C2S_DropItem::VT_ITEM, item);
+  }
+  explicit C2S_DropItemBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_DropItem> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_DropItem>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_DropItem> CreateC2S_DropItem(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t drop_sequence = 0,
+    ::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry> item = 0) {
+  C2S_DropItemBuilder builder_(_fbb);
+  builder_.add_item(item);
+  builder_.add_drop_sequence(drop_sequence);
+  return builder_.Finish();
+}
+
+struct C2S_DropItem::Traits {
+  using type = C2S_DropItem;
+  static auto constexpr Create = CreateC2S_DropItem;
+};
+
+::flatbuffers::Offset<C2S_DropItem> CreateC2S_DropItem(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_DropItemT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct S2C_ItemDroppedT : public ::flatbuffers::NativeTable {
+  typedef S2C_ItemDropped TableType;
+  uint32_t player_id = 0;
+  uint32_t drop_sequence = 0;
+  std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT> item{};
+  S2C_ItemDroppedT() = default;
+  S2C_ItemDroppedT(const S2C_ItemDroppedT &o);
+  S2C_ItemDroppedT(S2C_ItemDroppedT&&) FLATBUFFERS_NOEXCEPT = default;
+  S2C_ItemDroppedT &operator=(S2C_ItemDroppedT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct S2C_ItemDropped FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_ItemDroppedT NativeTableType;
+  typedef S2C_ItemDroppedBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PLAYER_ID = 4,
+    VT_DROP_SEQUENCE = 6,
+    VT_ITEM = 8
+  };
+  uint32_t player_id() const {
+    return GetField<uint32_t>(VT_PLAYER_ID, 0);
+  }
+  uint32_t drop_sequence() const {
+    return GetField<uint32_t>(VT_DROP_SEQUENCE, 0);
+  }
+  const ProtoType::Net::WorldSpawnedItemEntry *item() const {
+    return GetPointer<const ProtoType::Net::WorldSpawnedItemEntry *>(VT_ITEM);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_PLAYER_ID, 4) &&
+           VerifyField<uint32_t>(verifier, VT_DROP_SEQUENCE, 4) &&
+           VerifyOffset(verifier, VT_ITEM) &&
+           verifier.VerifyTable(item()) &&
+           verifier.EndTable();
+  }
+  S2C_ItemDroppedT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_ItemDroppedT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_ItemDropped> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemDroppedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_ItemDroppedBuilder {
+  typedef S2C_ItemDropped Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_player_id(uint32_t player_id) {
+    fbb_.AddElement<uint32_t>(S2C_ItemDropped::VT_PLAYER_ID, player_id, 0);
+  }
+  void add_drop_sequence(uint32_t drop_sequence) {
+    fbb_.AddElement<uint32_t>(S2C_ItemDropped::VT_DROP_SEQUENCE, drop_sequence, 0);
+  }
+  void add_item(::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry> item) {
+    fbb_.AddOffset(S2C_ItemDropped::VT_ITEM, item);
+  }
+  explicit S2C_ItemDroppedBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_ItemDropped> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_ItemDropped>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_ItemDropped> CreateS2C_ItemDropped(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t player_id = 0,
+    uint32_t drop_sequence = 0,
+    ::flatbuffers::Offset<ProtoType::Net::WorldSpawnedItemEntry> item = 0) {
+  S2C_ItemDroppedBuilder builder_(_fbb);
+  builder_.add_item(item);
+  builder_.add_drop_sequence(drop_sequence);
+  builder_.add_player_id(player_id);
+  return builder_.Finish();
+}
+
+struct S2C_ItemDropped::Traits {
+  using type = S2C_ItemDropped;
+  static auto constexpr Create = CreateS2C_ItemDropped;
+};
+
+::flatbuffers::Offset<S2C_ItemDropped> CreateS2C_ItemDropped(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemDroppedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline C2S_ItemUseRequestT::C2S_ItemUseRequestT(const C2S_ItemUseRequestT &o)
       : header((o.header) ? new ProtoType::Net::Header(*o.header) : nullptr),
         item_instance_id(o.item_instance_id),
@@ -1150,6 +1319,91 @@ inline ::flatbuffers::Offset<S2C_ItemSpawnState> S2C_ItemSpawnState::Pack(::flat
       _fbb,
       _spawn_point_id,
       _items);
+}
+
+inline C2S_DropItemT::C2S_DropItemT(const C2S_DropItemT &o)
+      : drop_sequence(o.drop_sequence),
+        item((o.item) ? new ProtoType::Net::WorldSpawnedItemEntryT(*o.item) : nullptr) {
+}
+
+inline C2S_DropItemT &C2S_DropItemT::operator=(C2S_DropItemT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(drop_sequence, o.drop_sequence);
+  std::swap(item, o.item);
+  return *this;
+}
+
+inline C2S_DropItemT *C2S_DropItem::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_DropItemT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_DropItem::UnPackTo(C2S_DropItemT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = drop_sequence(); _o->drop_sequence = _e; }
+  { auto _e = item(); if (_e) { if(_o->item) { _e->UnPackTo(_o->item.get(), _resolver); } else { _o->item = std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>(_e->UnPack(_resolver)); } } else if (_o->item) { _o->item.reset(); } }
+}
+
+inline ::flatbuffers::Offset<C2S_DropItem> CreateC2S_DropItem(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_DropItemT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_DropItem::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_DropItem> C2S_DropItem::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_DropItemT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_DropItemT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _drop_sequence = _o->drop_sequence;
+  auto _item = _o->item ? CreateWorldSpawnedItemEntry(_fbb, _o->item.get(), _rehasher) : 0;
+  return ProtoType::Net::CreateC2S_DropItem(
+      _fbb,
+      _drop_sequence,
+      _item);
+}
+
+inline S2C_ItemDroppedT::S2C_ItemDroppedT(const S2C_ItemDroppedT &o)
+      : player_id(o.player_id),
+        drop_sequence(o.drop_sequence),
+        item((o.item) ? new ProtoType::Net::WorldSpawnedItemEntryT(*o.item) : nullptr) {
+}
+
+inline S2C_ItemDroppedT &S2C_ItemDroppedT::operator=(S2C_ItemDroppedT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(player_id, o.player_id);
+  std::swap(drop_sequence, o.drop_sequence);
+  std::swap(item, o.item);
+  return *this;
+}
+
+inline S2C_ItemDroppedT *S2C_ItemDropped::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_ItemDroppedT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_ItemDropped::UnPackTo(S2C_ItemDroppedT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = player_id(); _o->player_id = _e; }
+  { auto _e = drop_sequence(); _o->drop_sequence = _e; }
+  { auto _e = item(); if (_e) { if(_o->item) { _e->UnPackTo(_o->item.get(), _resolver); } else { _o->item = std::unique_ptr<ProtoType::Net::WorldSpawnedItemEntryT>(_e->UnPack(_resolver)); } } else if (_o->item) { _o->item.reset(); } }
+}
+
+inline ::flatbuffers::Offset<S2C_ItemDropped> CreateS2C_ItemDropped(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemDroppedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_ItemDropped::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_ItemDropped> S2C_ItemDropped::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_ItemDroppedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_ItemDroppedT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _player_id = _o->player_id;
+  auto _drop_sequence = _o->drop_sequence;
+  auto _item = _o->item ? CreateWorldSpawnedItemEntry(_fbb, _o->item.get(), _rehasher) : 0;
+  return ProtoType::Net::CreateS2C_ItemDropped(
+      _fbb,
+      _player_id,
+      _drop_sequence,
+      _item);
 }
 
 }  // namespace Net

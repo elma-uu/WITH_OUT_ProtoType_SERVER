@@ -574,15 +574,23 @@ inline ::flatbuffers::Offset<C2S_SaveQuickSlots> CreateC2S_SaveQuickSlotsDirect(
 
 struct C2S_RequestStashT : public ::flatbuffers::NativeTable {
   typedef C2S_RequestStash TableType;
+  uint8_t stash_index = 0;
 };
 
 struct C2S_RequestStash FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef C2S_RequestStashT NativeTableType;
   typedef C2S_RequestStashBuilder Builder;
   struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_STASH_INDEX = 4
+  };
+  uint8_t stash_index() const {
+    return GetField<uint8_t>(VT_STASH_INDEX, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_STASH_INDEX, 1) &&
            verifier.EndTable();
   }
   C2S_RequestStashT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -594,6 +602,9 @@ struct C2S_RequestStashBuilder {
   typedef C2S_RequestStash Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
+  void add_stash_index(uint8_t stash_index) {
+    fbb_.AddElement<uint8_t>(C2S_RequestStash::VT_STASH_INDEX, stash_index, 0);
+  }
   explicit C2S_RequestStashBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -606,8 +617,10 @@ struct C2S_RequestStashBuilder {
 };
 
 inline ::flatbuffers::Offset<C2S_RequestStash> CreateC2S_RequestStash(
-    ::flatbuffers::FlatBufferBuilder &_fbb) {
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t stash_index = 0) {
   C2S_RequestStashBuilder builder_(_fbb);
+  builder_.add_stash_index(stash_index);
   return builder_.Finish();
 }
 
@@ -620,6 +633,7 @@ struct C2S_RequestStash::Traits {
 
 struct S2C_StashStateT : public ::flatbuffers::NativeTable {
   typedef S2C_StashState TableType;
+  uint8_t stash_index = 0;
   std::vector<std::unique_ptr<ProtoType::Net::InventoryItemEntryT>> items{};
   S2C_StashStateT() = default;
   S2C_StashStateT(const S2C_StashStateT &o);
@@ -632,14 +646,19 @@ struct S2C_StashState FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef S2C_StashStateBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_ITEMS = 4
+    VT_STASH_INDEX = 4,
+    VT_ITEMS = 6
   };
+  uint8_t stash_index() const {
+    return GetField<uint8_t>(VT_STASH_INDEX, 0);
+  }
   const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *items() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *>(VT_ITEMS);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_STASH_INDEX, 1) &&
            VerifyOffset(verifier, VT_ITEMS) &&
            verifier.VerifyVector(items()) &&
            verifier.VerifyVectorOfTables(items()) &&
@@ -654,6 +673,9 @@ struct S2C_StashStateBuilder {
   typedef S2C_StashState Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
+  void add_stash_index(uint8_t stash_index) {
+    fbb_.AddElement<uint8_t>(S2C_StashState::VT_STASH_INDEX, stash_index, 0);
+  }
   void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> items) {
     fbb_.AddOffset(S2C_StashState::VT_ITEMS, items);
   }
@@ -670,9 +692,11 @@ struct S2C_StashStateBuilder {
 
 inline ::flatbuffers::Offset<S2C_StashState> CreateS2C_StashState(
     ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t stash_index = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> items = 0) {
   S2C_StashStateBuilder builder_(_fbb);
   builder_.add_items(items);
+  builder_.add_stash_index(stash_index);
   return builder_.Finish();
 }
 
@@ -683,10 +707,12 @@ struct S2C_StashState::Traits {
 
 inline ::flatbuffers::Offset<S2C_StashState> CreateS2C_StashStateDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t stash_index = 0,
     const std::vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *items = nullptr) {
   auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>(*items) : 0;
   return ProtoType::Net::CreateS2C_StashState(
       _fbb,
+      stash_index,
       items__);
 }
 
@@ -694,6 +720,7 @@ inline ::flatbuffers::Offset<S2C_StashState> CreateS2C_StashStateDirect(
 
 struct C2S_SaveStashT : public ::flatbuffers::NativeTable {
   typedef C2S_SaveStash TableType;
+  uint8_t stash_index = 0;
   std::vector<std::unique_ptr<ProtoType::Net::InventoryItemEntryT>> items{};
   C2S_SaveStashT() = default;
   C2S_SaveStashT(const C2S_SaveStashT &o);
@@ -706,14 +733,19 @@ struct C2S_SaveStash FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef C2S_SaveStashBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_ITEMS = 4
+    VT_STASH_INDEX = 4,
+    VT_ITEMS = 6
   };
+  uint8_t stash_index() const {
+    return GetField<uint8_t>(VT_STASH_INDEX, 0);
+  }
   const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *items() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *>(VT_ITEMS);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_STASH_INDEX, 1) &&
            VerifyOffset(verifier, VT_ITEMS) &&
            verifier.VerifyVector(items()) &&
            verifier.VerifyVectorOfTables(items()) &&
@@ -728,6 +760,9 @@ struct C2S_SaveStashBuilder {
   typedef C2S_SaveStash Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
+  void add_stash_index(uint8_t stash_index) {
+    fbb_.AddElement<uint8_t>(C2S_SaveStash::VT_STASH_INDEX, stash_index, 0);
+  }
   void add_items(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> items) {
     fbb_.AddOffset(C2S_SaveStash::VT_ITEMS, items);
   }
@@ -744,9 +779,11 @@ struct C2S_SaveStashBuilder {
 
 inline ::flatbuffers::Offset<C2S_SaveStash> CreateC2S_SaveStash(
     ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t stash_index = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>> items = 0) {
   C2S_SaveStashBuilder builder_(_fbb);
   builder_.add_items(items);
+  builder_.add_stash_index(stash_index);
   return builder_.Finish();
 }
 
@@ -757,10 +794,12 @@ struct C2S_SaveStash::Traits {
 
 inline ::flatbuffers::Offset<C2S_SaveStash> CreateC2S_SaveStashDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t stash_index = 0,
     const std::vector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> *items = nullptr) {
   auto items__ = items ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>>(*items) : 0;
   return ProtoType::Net::CreateC2S_SaveStash(
       _fbb,
+      stash_index,
       items__);
 }
 
@@ -982,6 +1021,7 @@ inline C2S_RequestStashT *C2S_RequestStash::UnPack(const ::flatbuffers::resolver
 inline void C2S_RequestStash::UnPackTo(C2S_RequestStashT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
+  { auto _e = stash_index(); _o->stash_index = _e; }
 }
 
 inline ::flatbuffers::Offset<C2S_RequestStash> CreateC2S_RequestStash(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_RequestStashT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -992,16 +1032,20 @@ inline ::flatbuffers::Offset<C2S_RequestStash> C2S_RequestStash::Pack(::flatbuff
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_RequestStashT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _stash_index = _o->stash_index;
   return ProtoType::Net::CreateC2S_RequestStash(
-      _fbb);
+      _fbb,
+      _stash_index);
 }
 
-inline S2C_StashStateT::S2C_StashStateT(const S2C_StashStateT &o) {
+inline S2C_StashStateT::S2C_StashStateT(const S2C_StashStateT &o)
+      : stash_index(o.stash_index) {
   items.reserve(o.items.size());
   for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::InventoryItemEntryT(*items_) : nullptr); }
 }
 
 inline S2C_StashStateT &S2C_StashStateT::operator=(S2C_StashStateT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(stash_index, o.stash_index);
   std::swap(items, o.items);
   return *this;
 }
@@ -1015,6 +1059,7 @@ inline S2C_StashStateT *S2C_StashState::UnPack(const ::flatbuffers::resolver_fun
 inline void S2C_StashState::UnPackTo(S2C_StashStateT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
+  { auto _e = stash_index(); _o->stash_index = _e; }
   { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::InventoryItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
 }
 
@@ -1026,18 +1071,22 @@ inline ::flatbuffers::Offset<S2C_StashState> S2C_StashState::Pack(::flatbuffers:
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_StashStateT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _stash_index = _o->stash_index;
   auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateInventoryItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
   return ProtoType::Net::CreateS2C_StashState(
       _fbb,
+      _stash_index,
       _items);
 }
 
-inline C2S_SaveStashT::C2S_SaveStashT(const C2S_SaveStashT &o) {
+inline C2S_SaveStashT::C2S_SaveStashT(const C2S_SaveStashT &o)
+      : stash_index(o.stash_index) {
   items.reserve(o.items.size());
   for (const auto &items_ : o.items) { items.emplace_back((items_) ? new ProtoType::Net::InventoryItemEntryT(*items_) : nullptr); }
 }
 
 inline C2S_SaveStashT &C2S_SaveStashT::operator=(C2S_SaveStashT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(stash_index, o.stash_index);
   std::swap(items, o.items);
   return *this;
 }
@@ -1051,6 +1100,7 @@ inline C2S_SaveStashT *C2S_SaveStash::UnPack(const ::flatbuffers::resolver_funct
 inline void C2S_SaveStash::UnPackTo(C2S_SaveStashT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
+  { auto _e = stash_index(); _o->stash_index = _e; }
   { auto _e = items(); if (_e) { _o->items.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->items[_i]) { _e->Get(_i)->UnPackTo(_o->items[_i].get(), _resolver); } else { _o->items[_i] = std::unique_ptr<ProtoType::Net::InventoryItemEntryT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->items.resize(0); } }
 }
 
@@ -1062,9 +1112,11 @@ inline ::flatbuffers::Offset<C2S_SaveStash> C2S_SaveStash::Pack(::flatbuffers::F
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_SaveStashT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _stash_index = _o->stash_index;
   auto _items = _o->items.size() ? _fbb.CreateVector<::flatbuffers::Offset<ProtoType::Net::InventoryItemEntry>> (_o->items.size(), [](size_t i, _VectorArgs *__va) { return CreateInventoryItemEntry(*__va->__fbb, __va->__o->items[i].get(), __va->__rehasher); }, &_va ) : 0;
   return ProtoType::Net::CreateC2S_SaveStash(
       _fbb,
+      _stash_index,
       _items);
 }
 

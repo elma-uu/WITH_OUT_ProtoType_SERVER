@@ -87,3 +87,37 @@ table S2C_ItemSpawnState {
   spawn_point_id: uint32;
   items: [WorldSpawnedItemEntry];
 }
+
+// A player manually threw one item out of their inventory onto the ground
+// (UInventoryScreenWidget::DropItemToWorld/PerformPartialDrop) -- unlike a
+// placed AItemSpawnPoint/AItemContainerBase, there's no stable in-level name
+// to hash for an id, since this is an ad hoc runtime event with no fixed
+// location in the level. drop_sequence is this client's own locally
+// incrementing counter (UProtoNetClientSubsystem::NextDropSequence) --
+// combined with the sender's player_id (which the server, not the client,
+// stamps onto S2C_ItemDropped -- see that table's comment) it gives every
+// client an independently-computable, globally-unique id for this exact
+// drop (see AProtoCharacter::SpawnDeathDropItems's NetSlotId comment for
+// the identical "same formula, independently computed" reasoning). No
+// server-side arbitration needed (unlike ContainerLootRoll/ItemSpawnRoll) --
+// there's only ever one proposer for a given (player_id, drop_sequence)
+// pair, so a pure relay is enough.
+table C2S_DropItem {
+  drop_sequence: uint32;
+  item: WorldSpawnedItemEntry;
+}
+
+// Relayed to every OTHER connected client (not the dropper -- it already
+// spawned its own copy optimistically, the instant the item left its
+// inventory, using the same id formula this describes). player_id is
+// stamped by the server (never trusted from the client, same "server
+// decides, not the client" rule C2S_MoveInput follows for its own
+// position), so a receiving client can compute
+// GetTypeHash(FString::Printf(TEXT("ItemDrop_%u_%u"), player_id,
+// drop_sequence)) as this drop's NetSlotId -- identical to what the
+// dropper's own client already used for its optimistic local spawn.
+table S2C_ItemDropped {
+  player_id: uint32;
+  drop_sequence: uint32;
+  item: WorldSpawnedItemEntry;
+}

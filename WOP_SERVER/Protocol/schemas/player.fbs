@@ -1,4 +1,5 @@
 include "common.fbs";
+include "item.fbs";
 
 namespace ProtoType.Net;
 
@@ -61,18 +62,30 @@ table C2S_SetVisible {
 
 // Sent once by a client whose local player just died (StatusComponent's
 // OnPlayerDied fired -- see AProtoCharacter::HandleDeath), so the server
-// can broadcast it to every OTHER client. No fields: player_id is always
-// this session's own id, same "server decides, not the client" rule
-// C2S_MoveInput follows for its own position.
+// can broadcast it to every OTHER client. player_id is always this
+// session's own id, same "server decides, not the client" rule
+// C2S_MoveInput follows for its own position -- only items needs to come
+// from the client at all. items is this player's full carried loadout
+// (grid inventory + equipment + quick slots, all about to be wiped by
+// WipeCarriedInventoryOnDeath) with each entry's position already computed
+// client-side (scattered around the death location) -- see
+// AProtoCharacter::BuildDeathDropSnapshot. Reusing WorldSpawnedItemEntry
+// (the same shape AItemSpawnPoint's scattered drops use) rather than
+// InventoryItemEntry since these are world-placed drops, not grid slots.
 table C2S_PlayerDied {
+  items: [WorldSpawnedItemEntry];
 }
 
 // Broadcast to every OTHER client. Purely visual on the receiving end --
 // ragdoll this player's remote mirror instead of leaving it standing
-// frozen (see AProtoCharacter::HandleRemotePlayerDied). Health itself
+// frozen (see AProtoCharacter::HandleRemotePlayerDied), AND spawn the same
+// ADropItem pile items describes (see AProtoCharacter::SpawnDeathDropItems)
+// so teammates can loot what this player was carrying. Health itself
 // isn't server-authoritative yet (see that function's comment), so this
 // is trusted the same way C2S_AttackRequest's gun damage already is: the
-// dying client's own client decided it died, the server just relays it.
+// dying client's own client decided it died, the server just relays it --
+// items is a pure relay of whatever C2S_PlayerDied.items said, unmodified.
 table S2C_PlayerDied {
   player_id: uint32;
+  items: [WorldSpawnedItemEntry];
 }

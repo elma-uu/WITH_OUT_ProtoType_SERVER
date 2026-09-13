@@ -52,6 +52,8 @@ union Payload {
   C2S_RequestStash,
   S2C_StashState,
   C2S_SaveStash,
+  C2S_DropItem,
+  S2C_ItemDropped,
 }
 
 table Packet {

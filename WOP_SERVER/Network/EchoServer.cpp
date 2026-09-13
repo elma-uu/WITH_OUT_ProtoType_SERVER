@@ -9,11 +9,12 @@ namespace Wop
     /*-------------------
      생성/소멸
     -------------------*/
-    EchoServer::EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers)
+    EchoServer::EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers,
+                           std::chrono::milliseconds matchWindow)
         : port_(port)
         , workerThreadCount_(workerThreadCount == 0 ? 1 : workerThreadCount)
         , maxPlayers_(maxPlayers == 0 ? 1 : maxPlayers)
-        , matchmaker_(kMinSquadSize, kMaxSquadSize, kSoloMatchTimeout,
+        , matchmaker_(kMaxSquadSize, matchWindow,
               [this](std::vector<std::shared_ptr<Session>> squad) { CreateRoomForSquad(std::move(squad)); })
     {
     }
@@ -439,6 +440,25 @@ namespace Wop
             {
                 if (room->MemberCount() < kMaxSquadSize)
                 {
+                    // This session never goes through matchmaker_, so it
+                    // would otherwise never get ANY S2C_MatchmakingComplete
+                    // -- the client (LevelChangeSelectWidget) is waiting on
+                    // exactly that one signal regardless of which path
+                    // produced it (see Matchmaker::FormSquadLocked's own
+                    // send of the same message). Sent before AddSession
+                    // moves `session` out from under us, and before
+                    // AddSession's own roster/door-replay sends, matching
+                    // the ordering Matchmaker's path already guarantees.
+                    {
+                        using namespace ProtoType::Net;
+                        flatbuffers::FlatBufferBuilder fbb;
+                        auto complete = CreateS2C_MatchmakingComplete(
+                            fbb, static_cast<uint16_t>(room->MemberCount() + 1));
+                        auto packet = CreatePacket(fbb, Payload::S2C_MatchmakingComplete, complete.Union());
+                        FinishSizePrefixedPacketBuffer(fbb, packet);
+                        session->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
+                                      static_cast<uint32_t>(fbb.GetSize()));
+                    }
                     room->AddSession(std::move(session));
                     return;
                 }
@@ -446,8 +466,8 @@ namespace Wop
         }
 
         // No room has space -- queue for a fresh squad instead (see
-        // Matchmaker.h: forms immediately once enough are queued, or after
-        // a short solo timeout if nobody else shows up).
+        // Matchmaker.h: forms immediately once the queue fills up, or after
+        // matchWindow_ elapses if it never does).
         matchmaker_.Enqueue(std::move(session));
     }
 

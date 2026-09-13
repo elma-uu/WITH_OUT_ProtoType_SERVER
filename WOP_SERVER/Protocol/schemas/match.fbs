@@ -45,3 +45,24 @@ enum JoinMatchFailReason : byte {
 table S2C_JoinMatchFail {
   reason: JoinMatchFailReason;
 }
+
+// 매칭 대기열 재설계: C2S_JoinMatch가 성공해 Matchmaker 대기열에 들어간(또는 자리
+//있는 기존 Room에 바로 합류한) 세션에게 "지금 몇 명 모였는지"를 알려준다. 대기열에
+// 새 세션이 들어오거나 빠질 때마다 그 시점의 대기열 전원에게 다시 브로드캐스트되고
+// (Matchmaker::BroadcastStatusLocked), 대기열에 계속 남아있는 한 몇 번이든 반복해서
+// 온다 -- S2C_MatchmakingComplete(아래, 이 세션이 실제로 Room에 배정된 순간 딱 한 번만
+// 오는 것)와 구분된다. current/max 둘 다 이 메시지만으로 완결되므로 클라이언트가 max를
+// 따로 하드코딩할 필요가 없다.
+table S2C_MatchmakingStatus {
+  current: uint16;
+  max: uint16;
+}
+
+// 이 세션이 실제로 Room에 배정되어 더 이상 기다릴 필요가 없어진 순간 딱 한 번 온다 --
+// 대기열이 꽉 차서(current==max) 즉시 형성되었든, 최대 대기 시간(10초)이 지나 그때까지
+// 모인 인원(1명이어도)으로 형성되었든, 이미 자리가 있던 기존 Room에 바로 합류했든
+// 셋 다 동일하게 이 메시지 하나로 귀결된다 -- 클라이언트는 경로를 구분할 필요 없이
+// 이것 하나만 기다리면 된다(LevelChangeSelectWidget::HandleMatchmakingComplete).
+table S2C_MatchmakingComplete {
+  member_count: uint16;
+}

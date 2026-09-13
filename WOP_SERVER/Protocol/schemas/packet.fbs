@@ -59,6 +59,8 @@ union Payload {
   S2C_MatchTicket,
   C2S_JoinMatch,
   S2C_JoinMatchFail,
+  S2C_MatchmakingStatus,
+  S2C_MatchmakingComplete,
 }
 
 table Packet {

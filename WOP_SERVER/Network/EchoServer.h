@@ -35,8 +35,12 @@ namespace Wop
         -------------------*/
         // maxPlayers caps concurrent sessions; a connection beyond that gets
         // S2C_LoginFail{ServerFull} and is closed. See main.cpp for the
-        // actual value in use.
-        EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers = 2);
+        // actual value in use. matchWindow defaults to kMatchWindow (the
+        // real 10-second production wait) -- overridable so the live socket
+        // test suite (WOP_MATCH_WINDOW_MS, see ServerMain.cpp) doesn't have
+        // to actually sit through 10 real seconds per room formed.
+        EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers = 2,
+                   std::chrono::milliseconds matchWindow = kMatchWindow);
         ~EchoServer();
 
         EchoServer(const EchoServer&) = delete;
@@ -62,14 +66,18 @@ namespace Wop
         // with matchmaker_ to be grouped into a fresh squad.
         void EnqueueForMatch(std::shared_ptr<Session> session);
 
+        // Matchmaking policy -- see Matchmaker.h and this class's header
+        // comment. Public (not just used as this constructor's own default
+        // argument) so ServerMain.cpp's WOP_MATCH_WINDOW_MS override and the
+        // test suite both have one authoritative value to fall back to
+        // instead of a second hardcoded "10000".
+        static constexpr uint32_t kMaxSquadSize = 4;
+        // 사용자 요청: 최대 10초까지 기다렸다가, 그때까지 모인 인원(1명이어도)으로
+        // 시작한다 -- 대기열이 kMaxSquadSize로 꽉 차면 그 전에도 즉시 형성된다.
+        static constexpr std::chrono::milliseconds kMatchWindow{10000};
+
     private:
         static constexpr ULONG kCompletionQueueSize = 8192;
-
-        // Matchmaking policy -- see Matchmaker.h and this class's header
-        // comment. Tunable later without touching Room/Session at all.
-        static constexpr uint32_t kMinSquadSize = 2;
-        static constexpr uint32_t kMaxSquadSize = 4;
-        static constexpr std::chrono::milliseconds kSoloMatchTimeout{200};
 
         /*-------------------
          초기화 (Winsock/RIO/AcceptEx)

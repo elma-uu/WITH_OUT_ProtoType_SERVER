@@ -34,6 +34,14 @@ struct S2C_JoinMatchFail;
 struct S2C_JoinMatchFailBuilder;
 struct S2C_JoinMatchFailT;
 
+struct S2C_MatchmakingStatus;
+struct S2C_MatchmakingStatusBuilder;
+struct S2C_MatchmakingStatusT;
+
+struct S2C_MatchmakingComplete;
+struct S2C_MatchmakingCompleteBuilder;
+struct S2C_MatchmakingCompleteT;
+
 enum class JoinMatchFailReason : int8_t {
   InvalidOrExpiredTicket = 0,
   MIN = InvalidOrExpiredTicket,
@@ -345,6 +353,135 @@ struct S2C_JoinMatchFail::Traits {
 
 ::flatbuffers::Offset<S2C_JoinMatchFail> CreateS2C_JoinMatchFail(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_JoinMatchFailT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct S2C_MatchmakingStatusT : public ::flatbuffers::NativeTable {
+  typedef S2C_MatchmakingStatus TableType;
+  uint16_t current = 0;
+  uint16_t max = 0;
+};
+
+struct S2C_MatchmakingStatus FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_MatchmakingStatusT NativeTableType;
+  typedef S2C_MatchmakingStatusBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CURRENT = 4,
+    VT_MAX = 6
+  };
+  uint16_t current() const {
+    return GetField<uint16_t>(VT_CURRENT, 0);
+  }
+  uint16_t max() const {
+    return GetField<uint16_t>(VT_MAX, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint16_t>(verifier, VT_CURRENT, 2) &&
+           VerifyField<uint16_t>(verifier, VT_MAX, 2) &&
+           verifier.EndTable();
+  }
+  S2C_MatchmakingStatusT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_MatchmakingStatusT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_MatchmakingStatus> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_MatchmakingStatusT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_MatchmakingStatusBuilder {
+  typedef S2C_MatchmakingStatus Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_current(uint16_t current) {
+    fbb_.AddElement<uint16_t>(S2C_MatchmakingStatus::VT_CURRENT, current, 0);
+  }
+  void add_max(uint16_t max) {
+    fbb_.AddElement<uint16_t>(S2C_MatchmakingStatus::VT_MAX, max, 0);
+  }
+  explicit S2C_MatchmakingStatusBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_MatchmakingStatus> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_MatchmakingStatus>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_MatchmakingStatus> CreateS2C_MatchmakingStatus(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint16_t current = 0,
+    uint16_t max = 0) {
+  S2C_MatchmakingStatusBuilder builder_(_fbb);
+  builder_.add_max(max);
+  builder_.add_current(current);
+  return builder_.Finish();
+}
+
+struct S2C_MatchmakingStatus::Traits {
+  using type = S2C_MatchmakingStatus;
+  static auto constexpr Create = CreateS2C_MatchmakingStatus;
+};
+
+::flatbuffers::Offset<S2C_MatchmakingStatus> CreateS2C_MatchmakingStatus(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_MatchmakingStatusT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct S2C_MatchmakingCompleteT : public ::flatbuffers::NativeTable {
+  typedef S2C_MatchmakingComplete TableType;
+  uint16_t member_count = 0;
+};
+
+struct S2C_MatchmakingComplete FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef S2C_MatchmakingCompleteT NativeTableType;
+  typedef S2C_MatchmakingCompleteBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_MEMBER_COUNT = 4
+  };
+  uint16_t member_count() const {
+    return GetField<uint16_t>(VT_MEMBER_COUNT, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint16_t>(verifier, VT_MEMBER_COUNT, 2) &&
+           verifier.EndTable();
+  }
+  S2C_MatchmakingCompleteT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(S2C_MatchmakingCompleteT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<S2C_MatchmakingComplete> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_MatchmakingCompleteT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct S2C_MatchmakingCompleteBuilder {
+  typedef S2C_MatchmakingComplete Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_member_count(uint16_t member_count) {
+    fbb_.AddElement<uint16_t>(S2C_MatchmakingComplete::VT_MEMBER_COUNT, member_count, 0);
+  }
+  explicit S2C_MatchmakingCompleteBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<S2C_MatchmakingComplete> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<S2C_MatchmakingComplete>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<S2C_MatchmakingComplete> CreateS2C_MatchmakingComplete(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint16_t member_count = 0) {
+  S2C_MatchmakingCompleteBuilder builder_(_fbb);
+  builder_.add_member_count(member_count);
+  return builder_.Finish();
+}
+
+struct S2C_MatchmakingComplete::Traits {
+  using type = S2C_MatchmakingComplete;
+  static auto constexpr Create = CreateS2C_MatchmakingComplete;
+};
+
+::flatbuffers::Offset<S2C_MatchmakingComplete> CreateS2C_MatchmakingComplete(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_MatchmakingCompleteT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline C2S_RequestMatchT *C2S_RequestMatch::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<C2S_RequestMatchT>();
   UnPackTo(_o.get(), _resolver);
@@ -453,6 +590,61 @@ inline ::flatbuffers::Offset<S2C_JoinMatchFail> S2C_JoinMatchFail::Pack(::flatbu
   return ProtoType::Net::CreateS2C_JoinMatchFail(
       _fbb,
       _reason);
+}
+
+inline S2C_MatchmakingStatusT *S2C_MatchmakingStatus::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_MatchmakingStatusT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_MatchmakingStatus::UnPackTo(S2C_MatchmakingStatusT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = current(); _o->current = _e; }
+  { auto _e = max(); _o->max = _e; }
+}
+
+inline ::flatbuffers::Offset<S2C_MatchmakingStatus> CreateS2C_MatchmakingStatus(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_MatchmakingStatusT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_MatchmakingStatus::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_MatchmakingStatus> S2C_MatchmakingStatus::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_MatchmakingStatusT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_MatchmakingStatusT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _current = _o->current;
+  auto _max = _o->max;
+  return ProtoType::Net::CreateS2C_MatchmakingStatus(
+      _fbb,
+      _current,
+      _max);
+}
+
+inline S2C_MatchmakingCompleteT *S2C_MatchmakingComplete::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<S2C_MatchmakingCompleteT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void S2C_MatchmakingComplete::UnPackTo(S2C_MatchmakingCompleteT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = member_count(); _o->member_count = _e; }
+}
+
+inline ::flatbuffers::Offset<S2C_MatchmakingComplete> CreateS2C_MatchmakingComplete(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_MatchmakingCompleteT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return S2C_MatchmakingComplete::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<S2C_MatchmakingComplete> S2C_MatchmakingComplete::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_MatchmakingCompleteT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const S2C_MatchmakingCompleteT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _member_count = _o->member_count;
+  return ProtoType::Net::CreateS2C_MatchmakingComplete(
+      _fbb,
+      _member_count);
 }
 
 }  // namespace Net

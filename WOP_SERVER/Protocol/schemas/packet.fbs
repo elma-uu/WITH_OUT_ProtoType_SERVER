@@ -61,6 +61,7 @@ union Payload {
   S2C_JoinMatchFail,
   S2C_MatchmakingStatus,
   S2C_MatchmakingComplete,
+  C2S_MultiMapReady,
 }
 
 table Packet {

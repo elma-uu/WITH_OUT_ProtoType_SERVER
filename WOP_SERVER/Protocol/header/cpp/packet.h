@@ -82,11 +82,12 @@ enum class Payload : uint8_t {
   S2C_JoinMatchFail = 47,
   S2C_MatchmakingStatus = 48,
   S2C_MatchmakingComplete = 49,
+  C2S_MultiMapReady = 50,
   MIN = NONE,
-  MAX = S2C_MatchmakingComplete
+  MAX = C2S_MultiMapReady
 };
 
-inline const Payload (&EnumValuesPayload())[50] {
+inline const Payload (&EnumValuesPayload())[51] {
   static const Payload values[] = {
     Payload::NONE,
     Payload::C2S_Login,
@@ -137,13 +138,14 @@ inline const Payload (&EnumValuesPayload())[50] {
     Payload::C2S_JoinMatch,
     Payload::S2C_JoinMatchFail,
     Payload::S2C_MatchmakingStatus,
-    Payload::S2C_MatchmakingComplete
+    Payload::S2C_MatchmakingComplete,
+    Payload::C2S_MultiMapReady
   };
   return values;
 }
 
 inline const char * const *EnumNamesPayload() {
-  static const char * const names[51] = {
+  static const char * const names[52] = {
     "NONE",
     "C2S_Login",
     "S2C_LoginFail",
@@ -194,13 +196,14 @@ inline const char * const *EnumNamesPayload() {
     "S2C_JoinMatchFail",
     "S2C_MatchmakingStatus",
     "S2C_MatchmakingComplete",
+    "C2S_MultiMapReady",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePayload(Payload e) {
-  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::S2C_MatchmakingComplete)) return "";
+  if (::flatbuffers::IsOutRange(e, Payload::NONE, Payload::C2S_MultiMapReady)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPayload()[index];
 }
@@ -405,6 +408,10 @@ template<> struct PayloadTraits<ProtoType::Net::S2C_MatchmakingComplete> {
   static const Payload enum_value = Payload::S2C_MatchmakingComplete;
 };
 
+template<> struct PayloadTraits<ProtoType::Net::C2S_MultiMapReady> {
+  static const Payload enum_value = Payload::C2S_MultiMapReady;
+};
+
 template<typename T> struct PayloadUnionTraits {
   static const Payload enum_value = Payload::NONE;
 };
@@ -603,6 +610,10 @@ template<> struct PayloadUnionTraits<ProtoType::Net::S2C_MatchmakingStatusT> {
 
 template<> struct PayloadUnionTraits<ProtoType::Net::S2C_MatchmakingCompleteT> {
   static const Payload enum_value = Payload::S2C_MatchmakingComplete;
+};
+
+template<> struct PayloadUnionTraits<ProtoType::Net::C2S_MultiMapReadyT> {
+  static const Payload enum_value = Payload::C2S_MultiMapReady;
 };
 
 struct PayloadUnion {
@@ -1027,6 +1038,14 @@ struct PayloadUnion {
     return type == Payload::S2C_MatchmakingComplete ?
       reinterpret_cast<const ProtoType::Net::S2C_MatchmakingCompleteT *>(value) : nullptr;
   }
+  ProtoType::Net::C2S_MultiMapReadyT *AsC2S_MultiMapReady() {
+    return type == Payload::C2S_MultiMapReady ?
+      reinterpret_cast<ProtoType::Net::C2S_MultiMapReadyT *>(value) : nullptr;
+  }
+  const ProtoType::Net::C2S_MultiMapReadyT *AsC2S_MultiMapReady() const {
+    return type == Payload::C2S_MultiMapReady ?
+      reinterpret_cast<const ProtoType::Net::C2S_MultiMapReadyT *>(value) : nullptr;
+  }
 };
 
 template <bool B = false>
@@ -1200,6 +1219,9 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ProtoType::Net::S2C_MatchmakingComplete *payload_as_S2C_MatchmakingComplete() const {
     return payload_type() == ProtoType::Net::Payload::S2C_MatchmakingComplete ? static_cast<const ProtoType::Net::S2C_MatchmakingComplete *>(payload()) : nullptr;
+  }
+  const ProtoType::Net::C2S_MultiMapReady *payload_as_C2S_MultiMapReady() const {
+    return payload_type() == ProtoType::Net::Payload::C2S_MultiMapReady ? static_cast<const ProtoType::Net::C2S_MultiMapReady *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -1408,6 +1430,10 @@ template<> inline const ProtoType::Net::S2C_MatchmakingStatus *Packet::payload_a
 
 template<> inline const ProtoType::Net::S2C_MatchmakingComplete *Packet::payload_as<ProtoType::Net::S2C_MatchmakingComplete>() const {
   return payload_as_S2C_MatchmakingComplete();
+}
+
+template<> inline const ProtoType::Net::C2S_MultiMapReady *Packet::payload_as<ProtoType::Net::C2S_MultiMapReady>() const {
+  return payload_as_C2S_MultiMapReady();
 }
 
 struct PacketBuilder {
@@ -1679,6 +1705,10 @@ inline bool VerifyPayload(::flatbuffers::VerifierTemplate<B> &verifier, const vo
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_MatchmakingComplete *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case Payload::C2S_MultiMapReady: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_MultiMapReady *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -1895,6 +1925,10 @@ inline void *PayloadUnion::UnPack(const void *obj, Payload type, const ::flatbuf
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_MatchmakingComplete *>(obj);
       return ptr->UnPack(resolver);
     }
+    case Payload::C2S_MultiMapReady: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_MultiMapReady *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -2098,6 +2132,10 @@ inline ::flatbuffers::Offset<void> PayloadUnion::Pack(::flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const ProtoType::Net::S2C_MatchmakingCompleteT *>(value);
       return CreateS2C_MatchmakingComplete(_fbb, ptr, _rehasher).Union();
     }
+    case Payload::C2S_MultiMapReady: {
+      auto ptr = reinterpret_cast<const ProtoType::Net::C2S_MultiMapReadyT *>(value);
+      return CreateC2S_MultiMapReady(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -2298,6 +2336,10 @@ inline PayloadUnion::PayloadUnion(const PayloadUnion &u) : type(u.type), value(n
     }
     case Payload::S2C_MatchmakingComplete: {
       value = new ProtoType::Net::S2C_MatchmakingCompleteT(*reinterpret_cast<ProtoType::Net::S2C_MatchmakingCompleteT *>(u.value));
+      break;
+    }
+    case Payload::C2S_MultiMapReady: {
+      value = new ProtoType::Net::C2S_MultiMapReadyT(*reinterpret_cast<ProtoType::Net::C2S_MultiMapReadyT *>(u.value));
       break;
     }
     default:
@@ -2549,6 +2591,11 @@ inline void PayloadUnion::Reset() {
     }
     case Payload::S2C_MatchmakingComplete: {
       auto ptr = reinterpret_cast<ProtoType::Net::S2C_MatchmakingCompleteT *>(value);
+      delete ptr;
+      break;
+    }
+    case Payload::C2S_MultiMapReady: {
+      auto ptr = reinterpret_cast<ProtoType::Net::C2S_MultiMapReadyT *>(value);
       delete ptr;
       break;
     }

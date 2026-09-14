@@ -47,6 +47,10 @@ struct S2C_PlayerDied;
 struct S2C_PlayerDiedBuilder;
 struct S2C_PlayerDiedT;
 
+struct C2S_MultiMapReady;
+struct C2S_MultiMapReadyBuilder;
+struct C2S_MultiMapReadyT;
+
 enum class EquipSlot : int8_t {
   Head = 0,
   Chest = 1,
@@ -768,6 +772,52 @@ inline ::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDiedDirect(
 
 ::flatbuffers::Offset<S2C_PlayerDied> CreateS2C_PlayerDied(::flatbuffers::FlatBufferBuilder &_fbb, const S2C_PlayerDiedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct C2S_MultiMapReadyT : public ::flatbuffers::NativeTable {
+  typedef C2S_MultiMapReady TableType;
+};
+
+struct C2S_MultiMapReady FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef C2S_MultiMapReadyT NativeTableType;
+  typedef C2S_MultiMapReadyBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+  C2S_MultiMapReadyT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(C2S_MultiMapReadyT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<C2S_MultiMapReady> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_MultiMapReadyT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct C2S_MultiMapReadyBuilder {
+  typedef C2S_MultiMapReady Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit C2S_MultiMapReadyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<C2S_MultiMapReady> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<C2S_MultiMapReady>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<C2S_MultiMapReady> CreateC2S_MultiMapReady(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  C2S_MultiMapReadyBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct C2S_MultiMapReady::Traits {
+  using type = C2S_MultiMapReady;
+  static auto constexpr Create = CreateC2S_MultiMapReady;
+};
+
+::flatbuffers::Offset<C2S_MultiMapReady> CreateC2S_MultiMapReady(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_MultiMapReadyT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline EquippedVisualT *EquippedVisual::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::make_unique<EquippedVisualT>();
   UnPackTo(_o.get(), _resolver);
@@ -1061,6 +1111,29 @@ inline ::flatbuffers::Offset<S2C_PlayerDied> S2C_PlayerDied::Pack(::flatbuffers:
       _fbb,
       _player_id,
       _items);
+}
+
+inline C2S_MultiMapReadyT *C2S_MultiMapReady::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::make_unique<C2S_MultiMapReadyT>();
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void C2S_MultiMapReady::UnPackTo(C2S_MultiMapReadyT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+}
+
+inline ::flatbuffers::Offset<C2S_MultiMapReady> CreateC2S_MultiMapReady(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_MultiMapReadyT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return C2S_MultiMapReady::Pack(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<C2S_MultiMapReady> C2S_MultiMapReady::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const C2S_MultiMapReadyT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const C2S_MultiMapReadyT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  return ProtoType::Net::CreateC2S_MultiMapReady(
+      _fbb);
 }
 
 }  // namespace Net

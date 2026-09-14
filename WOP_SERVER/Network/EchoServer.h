@@ -20,13 +20,19 @@ namespace Wop
     // on Room now, not here (see Room.h). Step 2 of the Login/Game server
     // separation (매칭 서버 설계): a logged-in session no longer joins a
     // shared world automatically -- EnqueueForMatch (called from Session's
-    // own C2S_Login handling) either slots it into an existing room with
-    // room to spare (a "late join", same as today's single-shared-world
-    // behavior -- see door_late_join_test) or queues it with matchmaker_,
-    // which groups waiting sessions into a fresh 2~4-person Room the
-    // instant enough have queued (or, failing that, after a short solo
-    // timeout -- see Matchmaker.h). Rooms are created/destroyed on demand
-    // now instead of the single server-lifetime defaultRoom_ step 1 used.
+    // own C2S_Login/C2S_JoinMatch handling) always queues it with
+    // matchmaker_, which groups waiting sessions into a fresh 2~4-person
+    // Room the instant enough have queued (or, failing that, after up to
+    // matchWindow if nobody else shows up -- see Matchmaker.h). Rooms are
+    // created/destroyed on demand now instead of the single server-lifetime
+    // defaultRoom_ step 1 used.
+    //
+    // 사용자 요청: 한번 형성된 Room은 멤버가 고정된다 -- 이전에는 자리가 남은
+    // 기존 Room에 새 세션을 바로 끼워 넣는 "late join" 경로가 있었지만
+    // (door_late_join_test가 검증하던 그 동작), 이미 시작된 매칭에 아무도
+    // 나중에 끼어들 수 없어야 한다는 요청에 따라 제거했다 -- 재접속을 포함해
+    // 모든 세션은 항상 matchmaker_ 대기열로 가서 자기 자신의 새 매칭 시도로
+    // 새 Room을 형성한다.
     class EchoServer
     {
     public:
@@ -59,11 +65,11 @@ namespace Wop
         // per-room variant of this yet.
         void LoadEnemyObstacles(const std::string& path);
 
-        // Called once by Session, right after a successful C2S_Login (see
-        // that case's comment) -- NOT at connection time anymore. Joins an
-        // existing room with room to spare if one exists (a "late join":
-        // see this class's own header comment), otherwise queues `session`
-        // with matchmaker_ to be grouped into a fresh squad.
+        // Called once by Session, right after a successful C2S_Login/
+        // C2S_JoinMatch (see those cases' comments) -- NOT at connection
+        // time anymore. Always queues `session` with matchmaker_ to be
+        // grouped into a fresh squad (see this class's header comment for
+        // why there's no "join an existing room" shortcut anymore).
         void EnqueueForMatch(std::shared_ptr<Session> session);
 
         // Matchmaking policy -- see Matchmaker.h and this class's header

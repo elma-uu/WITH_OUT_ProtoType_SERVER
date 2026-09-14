@@ -23,6 +23,17 @@ namespace Wop
         AnnounceNewMember(session);
     }
 
+    void Room::ReannounceMember(const std::shared_ptr<Session>& session)
+    {
+        if (!session)
+            return;
+        // 이미 members_ 안에 있는 세션에 대해서만 의미가 있다(AddSession이
+        // 아직 안 끝났으면 호출될 일도 없음) -- AnnounceNewMember 자체는
+        // "이미 멤버인지"를 신경 안 쓰고 그냥 로스터/도어 상태를 양방향으로
+        // 다시 내보내기만 하므로 그대로 재사용해도 안전하다.
+        AnnounceNewMember(session);
+    }
+
     void Room::AnnounceNewMember(const std::shared_ptr<Session>& newMember)
     {
         using namespace ProtoType::Net;

@@ -426,55 +426,13 @@ namespace Wop
         if (!session)
             return;
 
-        // Prefer joining an existing room with room to spare over starting
-        // a fresh squad -- lets a friend join an in-progress raid instead
-        // of only ever forming brand new ones (see door_late_join_test's
-        // whole scenario: whoever's already mid-raid shouldn't become
-        // unreachable to a session that logs in a moment later). Room::
-        // AddSession fires Room::AnnounceNewMember, which gives this
-        // session the exact same roster/door-state replay a step-1-style
-        // single shared world always gave a late joiner.
-        {
-            std::lock_guard<std::mutex> guard(roomsLock_);
-            for (const auto& [roomId, room] : rooms_)
-            {
-                if (room->MemberCount() < kMaxSquadSize)
-                {
-                    // 진단 로그(문제: "먼저 들어온 사람 화면에서 늦게 들어온
-                    // 유저가 안 보임") -- 이 세션이 실제로 "이미 자리 있는
-                    // 기존 방"으로 late-join하고 있는지, 그 방에 지금 몇 명이
-                    // 있는지 서버 콘솔에서 바로 확인하기 위함.
-                    std::printf("[Room %u] EnqueueForMatch: session %u late-joining (room had %zu member(s) already)\n",
-                                roomId, session->GetId(), room->MemberCount());
-
-                    // This session never goes through matchmaker_, so it
-                    // would otherwise never get ANY S2C_MatchmakingComplete
-                    // -- the client (LevelChangeSelectWidget) is waiting on
-                    // exactly that one signal regardless of which path
-                    // produced it (see Matchmaker::FormSquadLocked's own
-                    // send of the same message). Sent before AddSession
-                    // moves `session` out from under us, and before
-                    // AddSession's own roster/door-replay sends, matching
-                    // the ordering Matchmaker's path already guarantees.
-                    {
-                        using namespace ProtoType::Net;
-                        flatbuffers::FlatBufferBuilder fbb;
-                        auto complete = CreateS2C_MatchmakingComplete(
-                            fbb, static_cast<uint16_t>(room->MemberCount() + 1));
-                        auto packet = CreatePacket(fbb, Payload::S2C_MatchmakingComplete, complete.Union());
-                        FinishSizePrefixedPacketBuffer(fbb, packet);
-                        session->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
-                                      static_cast<uint32_t>(fbb.GetSize()));
-                    }
-                    room->AddSession(std::move(session));
-                    return;
-                }
-            }
-        }
-
-        // No room has space -- queue for a fresh squad instead (see
-        // Matchmaker.h: forms immediately once the queue fills up, or after
-        // matchWindow_ elapses if it never does).
+        // 사용자 요청: 이미 형성된 Room에 나중에 끼어드는 경로(예전엔 여기서
+        // rooms_를 스캔해서 자리 남은 방을 찾아 바로 넣어줬다 -- door_late_join_test가
+        // 검증하던 그 동작)는 완전히 제거했다. 한번 시작한 매칭마다 Room은
+        // 딱 하나뿐이고 멤버가 고정되어야 하므로, 재접속을 포함해 모든 세션은
+        // 예외 없이 matchmaker_ 대기열로 간다 -- 대기열은 그 자체로 최대
+        // matchWindow_까지 기다렸다가 그때까지 모인 인원으로 항상 "새" Room을
+        // 형성한다(Matchmaker::FormSquadLocked).
         matchmaker_.Enqueue(std::move(session));
     }
 

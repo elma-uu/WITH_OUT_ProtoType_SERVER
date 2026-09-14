@@ -78,8 +78,7 @@ namespace Wop
         // actually creates the Room and calls Room::AddSession -- see
         // EchoServer::CreateRoomForSquad) starts sending them roster/door
         // replays, so the client's "matching complete" signal always arrives
-        // first, matching the order a late-join into an existing room's own
-        // instant completion signal (see EchoServer::EnqueueForMatch) does.
+        // first.
         {
             using namespace ProtoType::Net;
             flatbuffers::FlatBufferBuilder fbb;

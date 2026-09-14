@@ -53,6 +53,17 @@ namespace Wop
         void RemoveSession(uint32_t sessionId);
         size_t MemberCount() const;
 
+        // 문제: "먼저 들어온 사람 화면에서 늦게 들어온 유저가 안 보임" --
+        // C2S_MultiMapReady 핸들러(Session.cpp)에서 호출한다. AddSession이
+        // 트리거하는 원래 로스터 알림은 이 세션이 Room에 추가되는 그 순간(아직
+        // 레벨 로딩 중일 수도 있음) 딱 한 번만 나가는데, 그 타이밍에 뭔가
+        // 놓쳤어도 복구할 방법이 없었다. 이건 클라이언트가 "나 진짜 멀티맵
+        // 들어왔고 준비됐다"고 알려올 때마다 AnnounceNewMember와 완전히 동일한
+        // 로직(이 세션에게 다른 멤버 전원 재통지 + 다른 멤버 전원에게 이
+        // 세션 재통지)을 다시 실행해서 자체 복구한다 -- AddSession 때 이미
+        // 멤버였던 세션이라도 상관없이 그냥 다시 알려주는 것뿐이라 안전하다.
+        void ReannounceMember(const std::shared_ptr<Session>& session);
+
         /*-------------------
          브로드캐스트 (이 Room의 멤버에게만)
         -------------------*/

@@ -157,6 +157,9 @@ namespace
             case Payload::C2S_JoinMatch:
                 return "join match";
 
+            case Payload::C2S_MultiMapReady:
+                return "multi map ready";
+
             default:
                 return EnumNamePayload(packet->payload_type());
         }
@@ -1126,6 +1129,22 @@ namespace Wop
                 break;
             }
 
+            case Payload::C2S_MultiMapReady:
+            {
+                // Not yet matched into a Room -- nothing to (re)announce yet
+                // (see EchoServer::EnqueueForMatch). Also covers a session
+                // that's simply not in a Multi map at all (bMultiplayerVisualsEnabled
+                // false on the client means this is never sent in the first
+                // place, but nothing here depends on that -- a Room-less
+                // session just has nothing to do).
+                const std::shared_ptr<Room> room = GetRoom();
+                if (!room)
+                    break;
+
+                room->ReannounceMember(shared_from_this());
+                break;
+            }
+
             default:
                 break;
         }
@@ -1331,7 +1350,8 @@ namespace Wop
                  type == ProtoType::Net::Payload::C2S_ItemSpawnRoll ||
                  type == ProtoType::Net::Payload::C2S_PlayerDied ||
                  type == ProtoType::Net::Payload::C2S_RequestMatch ||
-                 type == ProtoType::Net::Payload::C2S_JoinMatch);
+                 type == ProtoType::Net::Payload::C2S_JoinMatch ||
+                 type == ProtoType::Net::Payload::C2S_MultiMapReady);
             if (!skipSelfEcho)
                 EnqueueEcho(recvBuffer_.ReadPos(), static_cast<uint32_t>(total));
             if (closing_.load(std::memory_order_acquire))

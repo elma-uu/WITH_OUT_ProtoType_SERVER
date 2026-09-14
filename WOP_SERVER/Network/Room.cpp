@@ -328,12 +328,32 @@ namespace Wop
                       static_cast<uint32_t>(fbb.GetSize()));
         }
 
-        for (const auto& attack : tickResult.attackEvents)
+        for (const auto& attackStart : tickResult.attackStartEvents)
         {
-            // Unicast, same trust tier as S2C_AttackResult -- the server
-            // decided this hit happened and how much it's worth, but the
-            // target's own client applies it to its own health (see
-            // S2C_EnemyAttackResult's schema comment).
+            // 싱글과 동일한 피격 판정(문제: "싱글과 똑같이 피격 판정을
+            // 넣어줘")의 첫 단계 -- 스윙이 "시작"됐다는 것만 지금 알린다.
+            // 데미지는 아직 결정 안 됐다(EnemyAI::Tick의 windup 참고) --
+            // 모두의 미러 사본이 실제 AttackMontage를 재생하기 시작하고,
+            // 그 몽타주 자체의 애님 노티파이 타이밍이 곧 이 스윙의 시각적
+            // 예비동작이 된다.
+            flatbuffers::FlatBufferBuilder broadcastFbb;
+            auto broadcastMsg = CreateS2C_EnemyAttackBroadcast(broadcastFbb, attackStart.enemyId);
+            auto broadcastPacket = CreatePacket(
+                broadcastFbb, Payload::S2C_EnemyAttackBroadcast, broadcastMsg.Union());
+            FinishSizePrefixedPacketBuffer(broadcastFbb, broadcastPacket);
+            Broadcast(0, reinterpret_cast<const char*>(broadcastFbb.GetBufferPointer()),
+                      static_cast<uint32_t>(broadcastFbb.GetSize()));
+        }
+
+        for (const auto& attack : tickResult.attackHitEvents)
+        {
+            // 두 번째 단계 -- windup이 다 지나고 나서야, 그리고 그 시점에
+            // 실제로 사거리/시야 안이었을 때만 여기 도착한다(빗나가면
+            // EnemyAI::Tick이 애초에 이벤트를 안 만든다). 애니메이션은 이미
+            // attackStartEvents 쪽에서 나갔으니 여기선 데미지만 유니캐스트
+            // 한다 -- 같은 트러스트 등급, S2C_AttackResult와 동일(서버가
+            // "맞았다/이만큼"을 결정하고, 타겟 클라이언트가 자기 체력에
+            // 적용).
             std::shared_ptr<Session> targetSession;
             {
                 std::lock_guard<std::mutex> guard(membersLock_);
@@ -351,17 +371,6 @@ namespace Wop
             FinishSizePrefixedPacketBuffer(fbb, packet);
             targetSession->Send(reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                                  static_cast<uint32_t>(fbb.GetSize()));
-
-            // Everyone else's mirrored copy of enemyId needs to see the
-            // swing too, not just the target's health drop -- see
-            // S2C_EnemyAttackBroadcast's schema comment.
-            flatbuffers::FlatBufferBuilder broadcastFbb;
-            auto broadcastMsg = CreateS2C_EnemyAttackBroadcast(broadcastFbb, attack.enemyId);
-            auto broadcastPacket = CreatePacket(
-                broadcastFbb, Payload::S2C_EnemyAttackBroadcast, broadcastMsg.Union());
-            FinishSizePrefixedPacketBuffer(broadcastFbb, broadcastPacket);
-            Broadcast(0, reinterpret_cast<const char*>(broadcastFbb.GetBufferPointer()),
-                      static_cast<uint32_t>(broadcastFbb.GetSize()));
         }
     }
 

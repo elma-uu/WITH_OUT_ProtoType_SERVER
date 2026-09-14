@@ -10,6 +10,14 @@ namespace Wop
         constexpr float kEnemyRadius = 40.0f;     // approximate capsule radius, for obstacle inflation
         constexpr float kDeflectDegrees = 45.0f;  // how sharply to try steering around a blocked path
         constexpr float kPi = 3.14159265358979323846f;
+
+        // 싱글 플레이(AEnemyBase)의 공격 몽타주에서 "BeginAttack" 애님
+        // 노티파이가 스윙 시작 후 대략 이 정도 지나서 열린다 -- 서버엔
+        // 애니메이션이 없어 몽타주 타이밍을 그대로 읽을 순 없으니, 전형적인
+        // 좀비 근접 공격 예비동작(호밍/휘두르는 느낌) 길이로 근사한
+        // 값이다. 이 시간 동안은 애니메이션만 브로드캐스트되고 데미지
+        // 판정은 보류된다(FEnemyAiRecord::isAttackWindingUp 참고).
+        constexpr float kAttackWindupSeconds = 0.4f;
     }
 
     void EnemyAI::LoadObstacles(const std::string& path)
@@ -102,6 +110,50 @@ namespace Wop
                 continue;
             }
 
+            // 스윙 예비동작 중 -- 싱글 플레이의 "몽타주 재생 중이면 제자리에
+            // 멈춰서 애님 노티파이가 열릴 때까지 기다린다"와 동일하게, 이번
+            // 틱은 새 타겟 재탐색/이동/재공격 판단을 전부 건너뛰고 예비동작
+            // 타이머만 줄인다.
+            if (record.isAttackWindingUp)
+            {
+                record.attackWindupRemaining -= deltaSeconds;
+                if (record.attackWindupRemaining <= 0.0f)
+                {
+                    record.isAttackWindingUp = false;
+
+                    // 예비동작이 걸린 "그 순간"이 아니라 지금(=명중 판정
+                    // 시점)의 타겟 위치로 다시 사거리/시야를 검사한다 --
+                    // 싱글의 손 콜리전 박스가 스윙 도중 실제로 거기 있어야
+                    // 맞는 것과 같은 이치. 타겟이 그새 사거리를 벗어났거나
+                    // (도망), 시야가 막혔거나(장애물 뒤로 숨음), 아예
+                    // 연결이 끊겼으면 그냥 빗나간다 -- 이벤트 자체를 만들지
+                    // 않는다.
+                    for (size_t i = 0; i < players.size(); ++i)
+                    {
+                        if (players[i].sessionId != record.pendingAttackTargetSessionId)
+                            continue;
+
+                        const float hitDx = players[i].x - record.posX;
+                        const float hitDy = players[i].y - record.posY;
+                        const float hitDist = std::sqrt(hitDx * hitDx + hitDy * hitDy);
+                        const bool stillHasLineOfSight = !obstacles_.SegmentBlocked(
+                            record.posX, record.posY, players[i].x, players[i].y, 0.0f);
+
+                        if (hitDist <= record.attackRange && stillHasLineOfSight)
+                        {
+                            result.attackHitEvents.push_back(
+                                { enemyId, players[i].sessionId, record.attackDamage });
+                        }
+                        break;
+                    }
+
+                    record.pendingAttackTargetSessionId = 0;
+                }
+
+                result.stateUpdates.push_back({ enemyId, record });
+                continue;
+            }
+
             const size_t targetIdx = resolveTargetIdx(record);
             const float targetDx = players[targetIdx].x - record.posX;
             const float targetDy = players[targetIdx].y - record.posY;
@@ -131,45 +183,119 @@ namespace Wop
                 // just resumes.
                 const float targetX = players[targetIdx].x;
                 const float targetY = players[targetIdx].y;
-
-                float dirX = (targetX - record.posX) / std::max(nearestDist, 0.0001f);
-                float dirY = (targetY - record.posY) / std::max(nearestDist, 0.0001f);
-
                 const float moveDist = record.moveSpeed * deltaSeconds;
-                const float probeDist = moveDist + kEnemyRadius;
 
-                if (obstacles_.SegmentBlocked(record.posX, record.posY,
-                        record.posX + dirX * probeDist, record.posY + dirY * probeDist, kEnemyRadius))
+                // 문제: "A* 알고리즘 적용해 줄 수 있어?" -- 경로가 아직
+                // 없거나(pathExhausted) 다 따라갔거나, 타겟이 마지막으로
+                // 경로를 계산했던 지점에서 충분히 멀어졌으면 재계산한다.
+                // pathRecomputeCooldownRemaining은 그 재계산 자체를 매 틱
+                // 새로 돌리는 낭비(+타겟이 경계값 근처에서 왔다갔다 할 때의
+                // 스래싱)를 막는 하한선일 뿐 -- 경로를 다 따라간 경우엔
+                // 쿨다운이 남아있어도 이번 틱은 그냥 반응형 폴백으로
+                // 움직이고, 쿨다운이 풀리는 다음 틱에 바로 재계산된다.
+                record.pathRecomputeCooldownRemaining -= deltaSeconds;
+
+                constexpr float kRepathTargetMoveThreshold = 300.0f;
+                const float targetMoveDx = targetX - record.lastPathTargetX;
+                const float targetMoveDy = targetY - record.lastPathTargetY;
+                const bool targetMovedEnough =
+                    (targetMoveDx * targetMoveDx + targetMoveDy * targetMoveDy)
+                    > (kRepathTargetMoveThreshold * kRepathTargetMoveThreshold);
+                const bool pathExhausted =
+                    record.currentPath.empty() || record.currentPathIdx >= record.currentPath.size();
+
+                if (record.pathRecomputeCooldownRemaining <= 0.0f && (pathExhausted || targetMovedEnough))
                 {
-                    // Direct path blocked -- try deflecting left/right
-                    // around whatever's in the way. Reactive, not real
-                    // pathfinding: see this class's header comment.
-                    const float rad = kDeflectDegrees * kPi / 180.0f;
-                    const float cosA = std::cos(rad);
-                    const float sinA = std::sin(rad);
-                    const float leftX = dirX * cosA - dirY * sinA;
-                    const float leftY = dirX * sinA + dirY * cosA;
-                    const float rightX = dirX * cosA + dirY * sinA;
-                    const float rightY = -dirX * sinA + dirY * cosA;
-
-                    const bool leftBlocked = obstacles_.SegmentBlocked(record.posX, record.posY,
-                        record.posX + leftX * probeDist, record.posY + leftY * probeDist, kEnemyRadius);
-                    const bool rightBlocked = obstacles_.SegmentBlocked(record.posX, record.posY,
-                        record.posX + rightX * probeDist, record.posY + rightY * probeDist, kEnemyRadius);
-
-                    if (!leftBlocked)
+                    std::vector<std::pair<float, float>> newPath;
+                    if (obstacles_.FindPath(record.posX, record.posY, targetX, targetY, kEnemyRadius, newPath))
                     {
-                        dirX = leftX;
-                        dirY = leftY;
+                        record.currentPath = std::move(newPath);
+                        record.currentPathIdx = 0;
                     }
-                    else if (!rightBlocked)
+                    else
                     {
-                        dirX = rightX;
-                        dirY = rightY;
+                        // 도달 불가/그리드 미구축/그리드 범위 밖 -- 아래
+                        // 반응형 좌우 회피 폴백으로 넘어간다(기존 동작
+                        // 그대로, 절대 제자리에 얼어붙지 않음).
+                        record.currentPath.clear();
                     }
-                    // else: both deflections also blocked -- keep going
-                    // straight anyway. Better than freezing in place; a
-                    // real wall-follow algorithm would do better than this.
+                    record.pathRecomputeCooldownRemaining = 0.3f;
+                    record.lastPathTargetX = targetX;
+                    record.lastPathTargetY = targetY;
+                }
+
+                float dirX;
+                float dirY;
+
+                if (!record.currentPath.empty() && record.currentPathIdx < record.currentPath.size())
+                {
+                    // A* 웨이포인트를 따라간다 -- 연속된 두 웨이포인트 사이는
+                    // LevelObstacles::SmoothPath가 이미 "직선으로 걸어도
+                    // 안전하다"고 검증해뒀으므로 여기선 장애물 프로브 없이
+                    // 그냥 직진한다.
+                    constexpr float kWaypointArrivalRadius = 60.0f;
+                    float wx = record.currentPath[record.currentPathIdx].first;
+                    float wy = record.currentPath[record.currentPathIdx].second;
+                    float toWpX = wx - record.posX;
+                    float toWpY = wy - record.posY;
+                    float wpDist = std::sqrt(toWpX * toWpX + toWpY * toWpY);
+
+                    while (wpDist <= kWaypointArrivalRadius &&
+                           record.currentPathIdx + 1 < record.currentPath.size())
+                    {
+                        ++record.currentPathIdx;
+                        wx = record.currentPath[record.currentPathIdx].first;
+                        wy = record.currentPath[record.currentPathIdx].second;
+                        toWpX = wx - record.posX;
+                        toWpY = wy - record.posY;
+                        wpDist = std::sqrt(toWpX * toWpX + toWpY * toWpY);
+                    }
+
+                    dirX = toWpX / std::max(wpDist, 0.0001f);
+                    dirY = toWpY / std::max(wpDist, 0.0001f);
+                }
+                else
+                {
+                    // 반응형 좌우 회피 폴백(원래 유일했던 스티어링) -- A*가
+                    // 이 타겟에 대해 실패했을 때만 탄다.
+                    dirX = (targetX - record.posX) / std::max(nearestDist, 0.0001f);
+                    dirY = (targetY - record.posY) / std::max(nearestDist, 0.0001f);
+
+                    const float probeDist = moveDist + kEnemyRadius;
+
+                    if (obstacles_.SegmentBlocked(record.posX, record.posY,
+                            record.posX + dirX * probeDist, record.posY + dirY * probeDist, kEnemyRadius))
+                    {
+                        // Direct path blocked -- try deflecting left/right
+                        // around whatever's in the way. Reactive, not real
+                        // pathfinding: see this class's header comment.
+                        const float rad = kDeflectDegrees * kPi / 180.0f;
+                        const float cosA = std::cos(rad);
+                        const float sinA = std::sin(rad);
+                        const float leftX = dirX * cosA - dirY * sinA;
+                        const float leftY = dirX * sinA + dirY * cosA;
+                        const float rightX = dirX * cosA + dirY * sinA;
+                        const float rightY = -dirX * sinA + dirY * cosA;
+
+                        const bool leftBlocked = obstacles_.SegmentBlocked(record.posX, record.posY,
+                            record.posX + leftX * probeDist, record.posY + leftY * probeDist, kEnemyRadius);
+                        const bool rightBlocked = obstacles_.SegmentBlocked(record.posX, record.posY,
+                            record.posX + rightX * probeDist, record.posY + rightY * probeDist, kEnemyRadius);
+
+                        if (!leftBlocked)
+                        {
+                            dirX = leftX;
+                            dirY = leftY;
+                        }
+                        else if (!rightBlocked)
+                        {
+                            dirX = rightX;
+                            dirY = rightY;
+                        }
+                        // else: both deflections also blocked -- keep going
+                        // straight anyway. Better than freezing in place; a
+                        // real wall-follow algorithm would do better than this.
+                    }
                 }
 
                 record.posX += dirX * moveDist;
@@ -179,14 +305,22 @@ namespace Wop
             else
             {
                 // Within attack range -- hold position and swing on
-                // cooldown. No telegraph/animation sync yet (clients just
-                // see the health tick down); see this record's field
-                // comment for why the timer starts at 0 (hits on arrival).
+                // cooldown. 싱글과 똑같이 피격 판정을 넣기 위해, 여기선 더
+                // 이상 즉시 명중시키지 않는다 -- 애니메이션 브로드캐스트만
+                // 지금 내보내고(attackStartEvents), 실제 명중/빗나감 판단은
+                // kAttackWindupSeconds 뒤 이 record.isAttackWindingUp 분기
+                // (이 함수 맨 위)에서 그 시점의 실제 위치로 다시 내린다 --
+                // 이 record.attackCooldownRemaining이 0인 이 틱은 스윙 판단만
+                // 내렸을 뿐이라는 점에서 여전히 "hits on arrival"이지만,
+                // 그게 곧 데미지 확정은 아니게 됐다.
                 record.attackCooldownRemaining -= deltaSeconds;
                 if (record.attackCooldownRemaining <= 0.0f)
                 {
                     record.attackCooldownRemaining = record.attackCooldown;
-                    result.attackEvents.push_back({ enemyId, players[targetIdx].sessionId, record.attackDamage });
+                    record.isAttackWindingUp = true;
+                    record.attackWindupRemaining = kAttackWindupSeconds;
+                    record.pendingAttackTargetSessionId = players[targetIdx].sessionId;
+                    result.attackStartEvents.push_back({ enemyId });
                 }
 
                 // Caller-type, engaged with its own target -- periodically

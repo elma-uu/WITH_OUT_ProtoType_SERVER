@@ -268,9 +268,32 @@ namespace Wop
         return enemyAi_.ApplyDamage(enemyId, damage);
     }
 
+    void Room::MaybeResyncAllMembers()
+    {
+        const auto now = std::chrono::steady_clock::now();
+        if (now - createdAt_ >= resyncWindow_)
+            return; // 방이 이미 충분히 오래됐다 -- 다들 진작 동기화됐을 것.
+        if (now - lastResyncAt_ < resyncInterval_)
+            return;
+        lastResyncAt_ = now;
+
+        const std::vector<std::shared_ptr<Session>> members = SnapshotOtherSessions(0);
+        std::printf("[Room %u] MaybeResyncAllMembers: re-announcing %zu member(s) to each other\n",
+                    roomId_, members.size());
+        for (const auto& session : members)
+            ReannounceMember(session);
+    }
+
     void Room::Tick(float deltaSeconds)
     {
         using namespace ProtoType::Net;
+
+        // 문제: "먼저 들어온 사람 화면에서 늦게 들어온 유저가 안 보임" --
+        // 근본 원인을 실기에서 100% 특정하지 못한 상태라, 방이 갓 형성된
+        // 동안은 몇 초간 계속 로스터를 다시 뿌려서 스스로 복구되게 한다(위
+        // MaybeResyncAllMembers 주석 참고). 매 틱 호출하지만 내부적으로
+        // kResyncInterval보다 자주는 실제로 아무것도 안 보낸다.
+        MaybeResyncAllMembers();
 
         // Session id 0 never belongs to a real connection, so this
         // snapshots every member of this room -- there's no single

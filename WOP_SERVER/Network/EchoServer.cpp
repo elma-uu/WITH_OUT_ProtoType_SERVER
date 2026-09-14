@@ -10,10 +10,12 @@ namespace Wop
      생성/소멸
     -------------------*/
     EchoServer::EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers,
-                           std::chrono::milliseconds matchWindow)
+                           std::chrono::milliseconds matchWindow,
+                           std::chrono::milliseconds roomResyncInterval)
         : port_(port)
         , workerThreadCount_(workerThreadCount == 0 ? 1 : workerThreadCount)
         , maxPlayers_(maxPlayers == 0 ? 1 : maxPlayers)
+        , roomResyncInterval_(roomResyncInterval)
         , matchmaker_(kMaxSquadSize, matchWindow,
               [this](std::vector<std::shared_ptr<Session>> squad) { CreateRoomForSquad(std::move(squad)); })
     {
@@ -442,7 +444,7 @@ namespace Wop
             return;
 
         const uint32_t roomId = nextRoomId_.fetch_add(1, std::memory_order_relaxed);
-        auto room = std::make_shared<Room>(roomId);
+        auto room = std::make_shared<Room>(roomId, roomResyncInterval_);
         if (!enemyObstaclesPath_.empty())
             room->LoadEnemyObstacles(enemyObstaclesPath_);
 

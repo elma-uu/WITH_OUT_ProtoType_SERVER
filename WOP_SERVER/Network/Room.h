@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Database.h"
 #include "EnemyAI.h"
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -42,7 +43,27 @@ namespace Wop
     class Room : public std::enable_shared_from_this<Room>
     {
     public:
-        explicit Room(uint32_t roomId) : roomId_(roomId) {}
+        // resyncInterval/resyncWindow default to the real production values
+        // (MaybeResyncAllMembers's comment) -- overridable so the live
+        // socket test suite can set an effectively-infinite interval
+        // (WOP_RESYNC_INTERVAL_MS, see ServerMain.cpp) instead of getting
+        // extra S2C_SendPlayerInfo/S2C_ItemUseBroadcast traffic injected
+        // mid-test every second, which broke every test still doing
+        // positional (not type-filtered) packet reads.
+        explicit Room(uint32_t roomId,
+                      std::chrono::milliseconds resyncInterval = kDefaultResyncInterval,
+                      std::chrono::milliseconds resyncWindow = kDefaultResyncWindow)
+            // 선언 순서(resyncInterval_/resyncWindow_가 roomId_보다 먼저 선언됨)와
+            // 맞춰서 나열 -- 실제 초기화는 어차피 선언 순서대로 일어나지만
+            // 경고 방지 + 가독성을 위해.
+            : resyncInterval_(resyncInterval)
+            , resyncWindow_(resyncWindow)
+            , roomId_(roomId)
+        {
+        }
+
+        static constexpr std::chrono::milliseconds kDefaultResyncInterval{1000};
+        static constexpr std::chrono::milliseconds kDefaultResyncWindow{15000};
 
         uint32_t GetId() const { return roomId_; }
 
@@ -63,6 +84,17 @@ namespace Wop
         // 세션 재통지)을 다시 실행해서 자체 복구한다 -- AddSession 때 이미
         // 멤버였던 세션이라도 상관없이 그냥 다시 알려주는 것뿐이라 안전하다.
         void ReannounceMember(const std::shared_ptr<Session>& session);
+
+        // 문제: "먼저 들어온 사람 화면에서 늦게 들어온 유저가 안 보임"이
+        // C2S_MultiMapReady로도 실기에서 100% 재현/특정이 안 되는 상황(친구
+        // PC라 로그 확인이 어려움) -- 정확한 근본 원인(클라이언트 레벨 로딩
+        // 타이밍 등)을 지금 당장 못 잡아도, 이 방이 갓 형성된 동안(kResyncWindow)
+        // 주기적으로(kResyncInterval마다) 전원에게 서로의 로스터를 다시
+        // 뿌려서 스스로 복구되게 한다 -- ReannounceMember 하나하나가 이미
+        // 멱등적(UpdateRemotePlayer가 이미 스폰된 상대면 그냥 갱신)이라
+        // 여러 번 반복해도 안전하다. Tick()에서 매 틱 호출한다(내부적으로
+        // 실제 재전송은 kResyncInterval 간격으로만 실행).
+        void MaybeResyncAllMembers();
 
         /*-------------------
          브로드캐스트 (이 Room의 멤버에게만)
@@ -127,6 +159,15 @@ namespace Wop
         // anymore, so this fires from AddSession -- whenever THAT actually
         // happens -- instead.
         void AnnounceNewMember(const std::shared_ptr<Session>& newMember);
+
+        // See MaybeResyncAllMembers's comment. createdAt_ is set once, at
+        // construction; lastResyncAt_ starts equal to it so the very first
+        // Tick() after formation doesn't immediately fire an extra resync on
+        // top of AddSession's own already-fresh announcements.
+        const std::chrono::milliseconds resyncInterval_;
+        const std::chrono::milliseconds resyncWindow_;
+        const std::chrono::steady_clock::time_point createdAt_ = std::chrono::steady_clock::now();
+        std::chrono::steady_clock::time_point lastResyncAt_ = createdAt_;
 
         uint32_t roomId_;
 

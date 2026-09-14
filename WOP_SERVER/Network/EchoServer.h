@@ -45,8 +45,13 @@ namespace Wop
         // real 10-second production wait) -- overridable so the live socket
         // test suite (WOP_MATCH_WINDOW_MS, see ServerMain.cpp) doesn't have
         // to actually sit through 10 real seconds per room formed.
+        // roomResyncInterval is passed through to every Room this server
+        // creates (see Room::MaybeResyncAllMembers) -- same reasoning,
+        // overridable via WOP_RESYNC_INTERVAL_MS so the test suite doesn't
+        // get extra roster traffic injected mid-test every second.
         EchoServer(uint16_t port, uint32_t workerThreadCount, uint32_t maxPlayers = 2,
-                   std::chrono::milliseconds matchWindow = kMatchWindow);
+                   std::chrono::milliseconds matchWindow = kMatchWindow,
+                   std::chrono::milliseconds roomResyncInterval = Room::kDefaultResyncInterval);
         ~EchoServer();
 
         EchoServer(const EchoServer&) = delete;
@@ -122,6 +127,7 @@ namespace Wop
         uint16_t port_;
         uint32_t workerThreadCount_;
         uint32_t maxPlayers_;
+        std::chrono::milliseconds roomResyncInterval_;
 
         bool winsockReady_ = false;
         SOCKET listenSocket_ = INVALID_SOCKET;

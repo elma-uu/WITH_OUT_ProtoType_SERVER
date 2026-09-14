@@ -440,6 +440,13 @@ namespace Wop
             {
                 if (room->MemberCount() < kMaxSquadSize)
                 {
+                    // 진단 로그(문제: "먼저 들어온 사람 화면에서 늦게 들어온
+                    // 유저가 안 보임") -- 이 세션이 실제로 "이미 자리 있는
+                    // 기존 방"으로 late-join하고 있는지, 그 방에 지금 몇 명이
+                    // 있는지 서버 콘솔에서 바로 확인하기 위함.
+                    std::printf("[Room %u] EnqueueForMatch: session %u late-joining (room had %zu member(s) already)\n",
+                                roomId, session->GetId(), room->MemberCount());
+
                     // This session never goes through matchmaker_, so it
                     // would otherwise never get ANY S2C_MatchmakingComplete
                     // -- the client (LevelChangeSelectWidget) is waiting on

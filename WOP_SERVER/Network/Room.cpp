@@ -1,6 +1,7 @@
 ﻿#include "Room.h"
 #include "Session.h"
 #include "packet.h"
+#include <cstdio>
 
 namespace Wop
 {
@@ -83,6 +84,16 @@ namespace Wop
             auto info = CreateS2C_SendPlayerInfo(fbb, newMember->GetId(), nicknameOffset, &pos, &look, 0, 0);
             auto reply = CreatePacket(fbb, Payload::S2C_SendPlayerInfo, info.Union());
             FinishSizePrefixedPacketBuffer(fbb, reply);
+            const std::vector<std::shared_ptr<Session>> others = SnapshotOtherSessions(newMember->GetId());
+            // 진단 로그(문제: "먼저 들어온 사람 화면에서 늦게 들어온 유저가 안
+            // 보임") -- 이 브로드캐스트가 실제로 몇 명에게, 누구한테 나가는지
+            // 서버 콘솔에서 바로 확인하기 위함. 정상이면 room 인원수-1명에게
+            // 나가야 한다.
+            std::printf("[Room %u] AnnounceNewMember: telling %zu other member(s) that %u joined:",
+                        roomId_, others.size(), newMember->GetId());
+            for (const auto& other : others)
+                std::printf(" %u", other->GetId());
+            std::printf("\n");
             Broadcast(newMember->GetId(), reinterpret_cast<const char*>(fbb.GetBufferPointer()),
                       static_cast<uint32_t>(fbb.GetSize()));
         }

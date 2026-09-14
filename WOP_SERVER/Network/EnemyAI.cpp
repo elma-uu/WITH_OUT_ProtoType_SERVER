@@ -20,7 +20,16 @@ namespace Wop
     void EnemyAI::RegisterIfNew(uint32_t enemyId, const FEnemyAiRecord& initial)
     {
         std::lock_guard<std::mutex> guard(lock_);
-        enemies_.try_emplace(enemyId, initial);
+        const auto [it, inserted] = enemies_.try_emplace(enemyId, initial);
+        // 진단 로그(문제: "이따금씩 유령 좀비 -- 투명한 좀비에게 공격당함") --
+        // 같은 enemy_id를 두 번째 이상 등록하려는 시도(inserted==false)는
+        // 정상적으로 무시되지만(첫 등록자가 권위를 가짐), 그 두 번째
+        // 클라이언트 쪽 로컬 액터가 미러 모드로 제대로 전환됐는지는 서버가
+        // 알 수 없다 -- 이 로그로 "몇 번이나, 누가 재등록을 시도했는지"부터
+        // 확인한다.
+        std::printf("[EnemyAI] RegisterIfNew(enemy_id=%u): %s (pos=%.0f,%.0f,%.0f)\n",
+                    enemyId, inserted ? "accepted (first registration)" : "ignored (already registered)",
+                    initial.posX, initial.posY, initial.posZ);
     }
 
     void EnemyAI::Reset()

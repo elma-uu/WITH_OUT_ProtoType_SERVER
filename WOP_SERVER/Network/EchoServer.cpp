@@ -493,7 +493,15 @@ namespace Wop
 
     void EchoServer::BackgroundTickLoop()
     {
-        constexpr auto kTickInterval = std::chrono::milliseconds(150);
+        // 100ms(기존 150ms에서 단축) -- 좀비 공격 판정이 쓰는 플레이어 위치가
+        // 클라이언트의 NetSyncInterval(100ms)만큼만 뒤처지게 하기 위함. 150ms
+        // 그대로였으면 100(클라 전송 주기)+150(이 틱 주기) = 최대 250ms까지
+        // 벌어질 수 있었고, 좀비 기본 공격 사거리(150 유닛 안팎)와 비슷한
+        // 크기라 빠르게 움직이는 플레이어를 "허공에 대고 공격"하는 것처럼
+        // 보이는 원인이 됐다. Matchmaker::TickTimeouts()도 같은 루프에서 이
+        // 간격으로 도는데, 최대 대기 시간(10초) 자체는 그대로고 그냥 더
+        // 촘촘히 체크할 뿐이라 무해함.
+        constexpr auto kTickInterval = std::chrono::milliseconds(100);
         auto lastTick = std::chrono::steady_clock::now();
 
         while (running_.load(std::memory_order_acquire))

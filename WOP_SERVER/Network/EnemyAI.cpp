@@ -251,6 +251,25 @@ namespace Wop
                         wpDist = std::sqrt(toWpX * toWpX + toWpY * toWpY);
                     }
 
+                    // 버그였던 부분(문제: "좀비가 아예 멈춰버리는데") -- 위
+                    // while 루프는 "다음" 웨이포인트가 있을 때만
+                    // currentPathIdx를 증가시키니까, 마지막 웨이포인트에
+                    // 도착한 뒤로는 currentPathIdx가 (size-1)에서 영원히
+                    // 멈춰있었다. pathExhausted 판정은 currentPathIdx >=
+                    // size()만 보는데 그 조건이 절대 참이 될 수 없었으니,
+                    // 목표가 lastPathTarget에서 300유닛 이상 움직이기
+                    // 전까지는 재계산도 안 일어나고 -- 이미 다 도착한
+                    // 마지막 지점 근처에서 거의 0에 가까운 발걸음만 계속
+                    // 내딛는(=사실상 정지) 상태로 갇혔다. 마지막 웨이포인트에
+                    // 실제로 도착했으면 currentPathIdx를 size()까지 밀어서
+                    // "경로 다 씀"을 명시적으로 표시한다 -- 다음 틱에
+                    // pathExhausted가 바로 true가 되어 그 순간의 진짜 목표
+                    // 위치로 즉시 재탐색한다.
+                    if (wpDist <= kWaypointArrivalRadius)
+                    {
+                        record.currentPathIdx = record.currentPath.size();
+                    }
+
                     dirX = toWpX / std::max(wpDist, 0.0001f);
                     dirY = toWpY / std::max(wpDist, 0.0001f);
                 }

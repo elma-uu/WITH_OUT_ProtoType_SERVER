@@ -69,7 +69,13 @@ namespace Wop
         // formed there (today's compatibility path for C2S_Login sessions
         // that never go through a ticket -- see Session::
         // FinishAuthenticatedLogin) still gets real obstacle-aware zombies.
-        server.LoadEnemyObstacles("Data/L_Stage2_obstacles.txt");
+        // 점검 중 발견: 실제로 플레이하는 멀티맵은 L_Stage1(102MB, 진짜 콘텐츠)이고
+        // L_Stage2(36KB)는 사실상 빈 테스트 레벨이었다 -- 장애물 파일 경로가
+        // 처음부터 잘못된(존재하지도 않는 벽 데이터를 가리키는) 이름이었던
+        // 것으로 보인다. UE 에디터 "File > Open Level"과 동일한 방식
+        // (UEditorLoadingAndSavingUtils::LoadMap)으로 다시 뽑은 L_Stage1의
+        // 실제 벽 706개(비정상적으로 거대한 배경 메쉬 3개 제외 703개)로 교체.
+        server.LoadEnemyObstacles("Data/L_Stage1_obstacles.txt");
 
         if (!server.Start())
         {
